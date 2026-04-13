@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-jammy
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -32,10 +32,7 @@ RUN mkdir -p uploads_profile_pics
 EXPOSE 8001
 
 CMD ["gunicorn", "main:app", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--workers", "4", \
-     "--bind", "0.0.0.0:8001", \
-     "--timeout", "120"]
-
-
-     
+    "--worker-class", "uvicorn.workers.UvicornWorker", \
+    "--workers", "4", \
+    "--bind", "0.0.0.0:8001", \
+    "--timeout", "120"]
