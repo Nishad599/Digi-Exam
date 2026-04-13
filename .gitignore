@@ -36,5 +36,3 @@ mock_sent_emails/
 .vscode/
 .idea/
 
-# Edge terminal (if local only)
-edge_terminal/

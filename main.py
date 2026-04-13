@@ -765,7 +765,7 @@ async def generate_pdf_hallticket(exam_id: int, registration_no: str, db: AsyncS
         "7. Candidates are not allowed to use any books, calculators, mobile phones, or gadgets.",
         "8. Candidates will be disqualified if found indulging in any kind of malpractice.",
     ]
-    
+    #hrllo hello
     c.setFont("Helvetica", 9)
     inst_y = bottom_y - 60
     for inst in instructions:
