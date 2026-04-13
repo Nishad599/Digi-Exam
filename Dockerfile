@@ -2,13 +2,12 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.12 via deadsnakes
+# Install Python 3.12 and system dependencies
 RUN apt-get update && apt-get install -y software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
-    python3-pip \
     build-essential \
     cmake \
     libopenblas-dev \
@@ -21,25 +20,30 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     libgomp1 \
     wget \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Set python3.12 as default
+# Set Python 3.12 as default
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
 
-# Install pip for 3.12 properly
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
+# Install pip properly (fix for Python 3.12)
+RUN python3.12 -m ensurepip --upgrade
+RUN python3.12 -m pip install --upgrade pip setuptools wheel
 
 WORKDIR /app
 
+# Copy requirements
 COPY requirements-linux.txt .
 
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements-linux.txt
-RUN pip install --no-cache-dir insightface==0.7.3 gunicorn
+# Install dependencies
+RUN python -m pip install --no-cache-dir -r requirements-linux.txt
+RUN python -m pip install --no-cache-dir insightface==0.7.3 gunicorn
 
+# Copy project
 COPY . .
 
+# Create required folder
 RUN mkdir -p uploads_profile_pics
 
 EXPOSE 8001
