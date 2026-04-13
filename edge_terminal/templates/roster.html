@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Roster — {{ exam_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+        }
+
+        .search-highlight {
+            background: #fef08a;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col text-gray-800">
+
+    <!-- Top Nav -->
+    <div class="w-full flex justify-between items-center bg-white px-4 py-2.5 shadow-sm border-b border-gray-200">
+        <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 rounded-full bg-indigo-600"></div>
+            <span class="font-black text-xs uppercase tracking-widest text-gray-700">Digi-Exam Edge Terminal</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                <span class="text-gray-400">👤</span> @{{ conductor_name }}
+            </span>
+            {% if package_loaded %}
+            <span
+                class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+                {{ exam_name }}
+            </span>
+            {% endif %}
+            <a href="/"
+                class="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition">
+                ← Back to Gate
+            </a>
+            <a href="/sync"
+                class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm">
+                📤 Sync Logs
+            </a>
+            <a href="/logout"
+                class="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition shadow-sm">
+                🔒 Lock
+            </a>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto w-full p-5 flex-1">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+            <div>
+                <h1 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
+                    Candidate Roster
+                </h1>
+                <p class="text-xs text-gray-500 mt-0.5">
+                    {{ total }} candidate{{ 's' if total != 1 else '' }} loaded from package
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="text" id="searchBox" placeholder="Search by name or reg no..."
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    oninput="filterTable()">
+                <select id="sessionFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    onchange="filterTable()">
+                    <option value="">All Sessions</option>
+                </select>
+            </div>
+        </div>
+
+        {% if not package_loaded %}
+        <div class="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
+            <p class="text-sm font-bold text-orange-600">⚠ No package loaded. Go back to the Gate and upload a .digipack
+                file first.</p>
+        </div>
+        {% elif total == 0 %}
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+            <p class="text-sm text-gray-500 italic">No candidates in this package.</p>
+        </div>
+        {% else %}
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Total Candidates</p>
+                <p class="text-2xl font-black text-indigo-600">{{ total }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">With Biometrics</p>
+                <p class="text-2xl font-black text-emerald-600" id="bioCount">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">No Biometrics</p>
+                <p class="text-2xl font-black text-red-500" id="noBioCount">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Sessions</p>
+                <p class="text-2xl font-black text-gray-700" id="sessionCount">—</p>
+            </div>
+        </div>
+
+        <!-- Candidate Table -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="font-black text-xs uppercase tracking-wider text-gray-600">Enrolled Candidates</span>
+                <span id="filterCount" class="text-xs text-gray-400">Showing all</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-xs" id="rosterTable">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                #</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Reg No</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Name</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Email</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Session</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Center</th>
+                            <th
+                                class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Biometrics</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rosterBody" class="divide-y divide-gray-50">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <script>
+        (function () {
+            const candidates = {{ candidates | tojson
+        }};
+
+        // Build session filter
+        const sessions = [...new Set(candidates.map(c => c.session_label || 'Unknown'))];
+        const sessionSel = document.getElementById('sessionFilter');
+        if (sessionSel) {
+            sessions.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                sessionSel.appendChild(opt);
+            });
+        }
+
+        // Stats
+        const withBio = candidates.filter(c => c.face_embedding).length;
+        const el = (id) => document.getElementById(id);
+        if (el('bioCount')) el('bioCount').textContent = withBio;
+        if (el('noBioCount')) el('noBioCount').textContent = candidates.length - withBio;
+        if (el('sessionCount')) el('sessionCount').textContent = sessions.length;
+
+        window.filterTable = function () {
+            const q = (document.getElementById('searchBox')?.value || '').toLowerCase();
+            const sess = document.getElementById('sessionFilter')?.value || '';
+            const tbody = document.getElementById('rosterBody');
+            if (!tbody) return;
+
+            let filtered = candidates;
+            if (q) filtered = filtered.filter(c =>
+                (c.name || '').toLowerCase().includes(q) ||
+                (c.reg_no || '').toLowerCase().includes(q) ||
+                (c.email || '').toLowerCase().includes(q)
+            );
+            if (sess) filtered = filtered.filter(c => (c.session_label || 'Unknown') === sess);
+
+            tbody.innerHTML = filtered.map((c, i) => `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 text-gray-400 font-mono">${i + 1}</td>
+                        <td class="px-4 py-3 font-bold font-mono text-indigo-700">${c.reg_no || '—'}</td>
+                        <td class="px-4 py-3 font-bold text-gray-800">${c.name || '—'}</td>
+                        <td class="px-4 py-3 text-gray-500">${c.email || '—'}</td>
+                        <td class="px-4 py-3">
+                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                ${c.session_label || '—'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500">${c.center_name || '—'}, ${c.city || ''}</td>
+                        <td class="px-4 py-3 text-center">
+                            ${c.face_embedding
+                    ? '<span class="text-emerald-600 font-bold">✓ Ready</span>'
+                    : '<span class="text-red-500 font-bold">✗ Missing</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+
+            const fc = document.getElementById('filterCount');
+            if (fc) fc.textContent = `Showing ${filtered.length} of ${candidates.length}`;
+        };
+
+        // Initial render
+        filterTable();
+        }) ();
+    </script>
+
+</body>
+
+</html>

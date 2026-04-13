@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Terminal - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center">
+
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 max-w-sm w-full">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span class="text-2xl">🔒</span>
+            </div>
+            <h1 class="text-xl font-black text-gray-800">Edge Terminal</h1>
+            <p class="text-xs text-gray-500 uppercase tracking-widest font-bold mt-1">Conductor Unlock</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-50 border border-red-200 text-red-600 text-xs font-bold p-3 rounded-lg mb-4 text-center">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Package Status -->
+        <div id="pkgStatus" class="mb-4">
+            {% if package_loaded %}
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                <p class="text-xs font-bold text-emerald-600 flex items-center justify-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    Package Loaded — Ready to Login
+                </p>
+                <button onclick="unloadPackage()" type="button"
+                    class="mt-2 text-[10px] uppercase tracking-widest text-emerald-600 hover:text-emerald-800 font-bold transition">Unload
+                    Package</button>
+            </div>
+            {% else %}
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <p
+                    class="text-[10px] uppercase tracking-wider font-bold text-orange-600 mb-2 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse inline-block"></span>
+                    Load Exam Package First
+                </p>
+                <form id="loadForm" class="space-y-2">
+                    <input type="file" id="packageFile" accept=".digipack,.json"
+                        class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 transition cursor-pointer"
+                        required>
+                    <button type="submit" id="loadBtn"
+                        class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition shadow-sm">
+                        Load Package
+                    </button>
+                </form>
+                <p id="loadMsg" class="text-xs mt-2 text-gray-400"></p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Login Form (always visible and active) -->
+        <form action="/login" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">Conductor
+                    Username</label>
+                <input type="text" name="conductor_username" required placeholder="e.g. rahul_s"
+                    class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">Device
+                    PIN</label>
+                <input type="password" name="pin" required placeholder="Enter PIN from Admin"
+                    class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-center tracking-[0.5em] font-mono">
+            </div>
+
+            <button type="submit"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl shadow-sm transition active:scale-95 text-sm mt-2">
+                Unlock Terminal
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const loadForm = document.getElementById('loadForm');
+        if (loadForm) {
+            loadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fileInput = document.getElementById('packageFile');
+                const msg = document.getElementById('loadMsg');
+                const btn = document.getElementById('loadBtn');
+                if (!fileInput.files.length) return;
+
+                const formData = new FormData();
+                formData.append('package_file', fileInput.files[0]);
+
+                btn.disabled = true;
+                btn.textContent = 'Loading...';
+                msg.textContent = 'Verifying package signature...';
+                msg.className = 'text-xs mt-2 text-indigo-600';
+
+                try {
+                    const res = await fetch('/api/load_package', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (res.ok) {
+                        msg.textContent = '✅ ' + data.exam_name + ' — ' + data.total_candidates + ' candidates loaded!';
+                        msg.className = 'text-xs mt-2 text-emerald-600 font-bold';
+                        setTimeout(() => window.location.reload(), 800);
+                    } else {
+                        msg.textContent = '❌ ' + (data.detail || 'Load failed');
+                        msg.className = 'text-xs mt-2 text-red-600 font-bold';
+                        btn.disabled = false;
+                        btn.textContent = 'Load Package';
+                    }
+                } catch (err) {
+                    msg.textContent = '❌ Connection error: ' + err.message;
+                    msg.className = 'text-xs mt-2 text-red-600 font-bold';
+                    btn.disabled = false;
+                    btn.textContent = 'Load Package';
+                }
+            });
+        }
+
+        async function unloadPackage() {
+            if (!confirm("Are you sure you want to unload this package? This will instantly wipe the active exam array from memory until a new file is loaded.")) return;
+            try {
+                const res = await fetch('/api/unload_package', { method: 'POST' });
+                if (res.ok) window.location.reload();
+            } catch (e) { alert("Network Error"); }
+        }
+    </script>
+</body>
+
+</html>
