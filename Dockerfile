@@ -1,13 +1,9 @@
-FROM ubuntu:22.04
+FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.12 and system dependencies
-RUN apt-get update && apt-get install -y software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y \
-    python3.12 \
-    python3.12-venv \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libopenblas-dev \
@@ -20,36 +16,23 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     libgomp1 \
     wget \
     git \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.12 as default
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
-
-# Install pip properly (fix for Python 3.12)
-RUN python3.12 -m ensurepip --upgrade
-RUN python3.12 -m pip install --upgrade pip setuptools wheel
+# Fix distutils issue (important)
+RUN python -m ensurepip --upgrade && \
+    pip install --upgrade pip setuptools
 
 WORKDIR /app
 
-# Copy requirements
 COPY requirements-linux.txt .
 
-# Install dependencies
-RUN python -m pip install --no-cache-dir -r requirements-linux.txt
-RUN python -m pip install --no-cache-dir insightface==0.7.3 gunicorn
+RUN pip install --no-cache-dir -r requirements-linux.txt
 
-# Copy project
+# Extra installs
+RUN pip install --no-cache-dir insightface==0.7.3 gunicorn
+
 COPY . .
 
-# Create required folder
-RUN mkdir -p uploads_profile_pics
+EXPOSE 5000
 
-EXPOSE 8001
-
-CMD ["gunicorn", "main:app", \
-    "--worker-class", "uvicorn.workers.UvicornWorker", \
-    "--workers", "4", \
-    "--bind", "0.0.0.0:8001", \
-    "--timeout", "120"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
