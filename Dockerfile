@@ -1,16 +1,13 @@
-FROM ubuntu:22.04
+FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --fix-missing \
-    python3.12 \
-    python3.12-venv \
-    python3-pip \
+RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     libopenblas-dev \
     liblapack-dev \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -20,13 +17,10 @@ RUN apt-get update && apt-get install -y --fix-missing \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.12 default
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python3
-RUN ln -sf /usr/bin/python3 /usr/bin/python
-
 WORKDIR /app
 
 COPY requirements-linux.txt .
+
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements-linux.txt
 RUN pip install --no-cache-dir insightface==0.7.3 gunicorn
@@ -38,7 +32,10 @@ RUN mkdir -p uploads_profile_pics
 EXPOSE 8001
 
 CMD ["gunicorn", "main:app", \
-    "--worker-class", "uvicorn.workers.UvicornWorker", \
-    "--workers", "4", \
-    "--bind", "0.0.0.0:8001", \
-    "--timeout", "120"]
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "4", \
+     "--bind", "0.0.0.0:8001", \
+     "--timeout", "120"]
+
+
+     
