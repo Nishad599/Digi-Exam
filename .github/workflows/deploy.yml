@@ -12,5 +12,29 @@ jobs:
         run: |
           cd /home/user1/DigiExam
           git pull origin main
-          echo "Deploy done!"
-          
+
+      - name: Rebuild and restart Docker containers
+        run: |
+          cd /home/user1/DigiExam
+          docker compose down
+          docker compose up -d --build
+          echo "Waiting for containers to stabilize..."
+          sleep 15
+
+      - name: Health check
+        run: |
+          cd /home/user1/DigiExam
+          if docker ps | grep -q "digi_exam_central"; then
+            echo "✅ Central server is running"
+          else
+            echo "❌ Central server failed to start!"
+            docker logs digi_exam_central --tail 30
+            exit 1
+          fi
+          if docker ps | grep -q "digi_nginx"; then
+            echo "✅ Nginx is running"
+          else
+            echo "❌ Nginx failed to start!"
+            exit 1
+          fi
+          echo "🚀 Deploy complete!"
