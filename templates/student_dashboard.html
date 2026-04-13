@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-panel w-full max-w-5xl mx-auto mt-8 p-6 rounded-xl flex flex-col md:flex-row gap-6">
+    <div class="w-full md:w-1/3 flex flex-col gap-4">
+        <!-- Student Profile Card -->
+        <div
+            class="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden transition-all hover:shadow-2xl">
+            <div class="absolute top-0 right-0 -tr-translate-x-4 translate-y-4 opacity-10">
+                <svg class="h-24 w-24" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                </svg>
+            </div>
+            <h3 class="text-xs uppercase tracking-widest font-bold text-blue-200 mb-1">Student Dashboard</h3>
+            <h2 id="studentName" class="text-2xl font-black mb-2 flex items-center gap-2">
+                Candidate
+            </h2>
+
+            <div class="space-y-2 mb-4 text-sm text-blue-100">
+                <p id="studentEmail" class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <span>Loading...</span>
+                </p>
+                <p id="studentPhone" class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z">
+                        </path>
+                    </svg>
+                    <span>Loading...</span>
+                </p>
+            </div>
+
+            <div class="flex flex-col gap-2 border-t border-white/20 pt-4">
+                <div id="statusBiometric"
+                    class="flex items-center space-x-2 text-xs font-mono bg-black/20 px-3 py-1.5 rounded transition-all">
+                    <span class="h-2 w-2 bg-gray-400 rounded-full"></span>
+                    <span>BIOMETRICS PENDING</span>
+                </div>
+                <div id="statusKyc"
+                    class="flex items-center space-x-2 text-xs font-mono bg-black/20 px-3 py-1.5 rounded transition-all hidden">
+                    <span class="h-2 w-2 bg-green-400 rounded-full"></span>
+                    <span>KYC VERIFIED</span>
+                </div>
+                <button onclick="logout()"
+                    class="mt-2 text-xs bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded shadow transition w-full uppercase tracking-wide">Logout
+                    Securely</button>
+            </div>
+        </div>
+
+        <!-- My Schedule (Upcoming & Past) -->
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mt-2 flex-grow">
+            <h3 class="font-bold text-gray-800 mb-4 border-b pb-2 flex items-center justify-between">
+                <span>My Exam Schedule</span>
+                <span id="enrollCount"
+                    class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+            </h3>
+
+            <div id="scheduleContainer" class="space-y-4">
+                <!-- Injected via JS -->
+                <p class="text-sm text-gray-400 italic text-center py-4">No exams enrolled.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full md:w-2/3">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Open Examinations</h2>
+        <div id="examsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Exam Cards here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    async function initProfile() {
+        try {
+            const res = await fetch('/api/me');
+            if (res.ok) {
+                const user = await res.json();
+
+                // Update Basic Profile Details
+                document.getElementById('studentName').innerText = user.name || user.username;
+                document.getElementById('studentEmail').innerHTML = `<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> <span class="break-all">${user.email || 'No email provided'}</span>`;
+                document.getElementById('studentPhone').innerHTML = `<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg> <span>${user.phone || 'No phone provided'}</span>`;
+
+                // Update Status Badges
+                const bioBadge = document.getElementById('statusBiometric');
+                if (user.has_face) {
+                    bioBadge.innerHTML = `<span class="h-2 w-2 bg-green-400 rounded-full animate-pulse"></span><span>FACE BIOMETRICS ENROLLED</span>`;
+                }
+
+                const kycBadge = document.getElementById('statusKyc');
+                if (user.kyc_verified) {
+                    kycBadge.classList.remove('hidden');
+                }
+
+                // Update Schedule (Past & Upcoming Exams)
+                if (user.enrollments && user.enrollments.length > 0) {
+                    document.getElementById('enrollCount').innerText = user.enrollments.length;
+
+                    // Simple frontend date parsing to separate upcoming/past
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const upcoming = [];
+                    const past = [];
+
+                    user.enrollments.forEach(e => {
+                        const examDate = new Date(e.date);
+                        if (isNaN(examDate.getTime()) || examDate >= today) {
+                            upcoming.push(e);
+                        } else {
+                            past.push(e);
+                        }
+                    });
+
+                    let html = "";
+
+                    if (upcoming.length > 0) {
+                        html += `<h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 mt-4">Upcoming Exams</h4>`;
+                        upcoming.forEach(e => {
+                            const badgeHtml = e.attendance_marked
+                                ? `<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded border border-green-200">✓ Checked In at ${e.attendance_time}</span>`
+                                : `<span class="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-200">Awaiting Entry</span>`;
+
+                            const pdfUrl = `/api/admin/hallticket/pdf?exam_id=${e.exam_id}&registration_no=${e.reg_no}`;
+
+                            html += `
+                            <div class="border-l-4 border-blue-500 p-4 mb-4 bg-gray-50 rounded-r-xl shadow-sm flex flex-col gap-3">
+                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                    <p class="text-[11px] font-bold text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-100 self-start inline-block">${e.date} &bull; ${e.time}</p>
+                                    <div class="self-start">${badgeHtml}</div>
+                                </div>
+                                <h4 class="font-black text-lg text-gray-800 leading-tight">${e.exam_name}</h4>
+                                <div class="flex flex-col 2xl:flex-row 2xl:justify-between 2xl:items-end gap-3 mt-1">
+                                    <div class="space-y-1.5 flex-grow">
+                                        <p class="text-xs text-gray-600"><span class="font-bold text-gray-700 bg-gray-200 px-1.5 py-0.5 rounded mr-1">Reg No</span> <span class="font-mono font-bold text-blue-700 text-sm">${e.reg_no}</span></p>
+                                        <p class="text-xs text-gray-500 flex items-start gap-1 max-w-sm">
+                                            <svg class="w-4 h-4 mt-0.5 shrink-0 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                                            <span class="leading-snug">${e.center}</span>
+                                        </p>
+                                    </div>
+                                    <a href="${pdfUrl}" target="_blank" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-4 py-2.5 rounded shadow transition-colors text-center flex items-center justify-center gap-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        Download PDF Ticket
+                                    </a>
+                                </div>
+                            </div>`;
+                        });
+                    }
+
+                    if (past.length > 0) {
+                        html += `<h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 mt-6">Previous Exams</h4>`;
+                        past.forEach(e => {
+                            html += `
+                            <div class="border-l-4 border-gray-300 pl-3 py-1 mb-4 opacity-75">
+                                <p class="text-xs font-bold text-gray-400">${e.date}</p>
+                                <h4 class="font-bold text-gray-600 line-through decoration-gray-300">${e.exam_name}</h4>
+                                <p class="text-xs text-gray-500 mt-1">Completed / Evaluated</p>
+                            </div>`;
+                        });
+                    }
+
+                    document.getElementById('scheduleContainer').innerHTML = html;
+                }
+
+            } else {
+                window.location.href = '/';
+            }
+        } catch (e) { console.error(e); }
+        loadExams();
+    }
+
+    async function logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        localStorage.removeItem('username');
+        window.location.href = '/';
+    }
+
+    async function loadExams() {
+        const res = await fetch('/api/admin/exams');
+        const exams = await res.json();
+        const grid = document.getElementById('examsGrid');
+        grid.innerHTML = '';
+
+        for (const e of exams) {
+            if (e.is_open) {
+                grid.innerHTML += `
+                    <div class="bg-white p-5 rounded-xl shadow border border-gray-100 flex flex-col justify-between hover:shadow-md transition" id="exam-card-${e.id}">
+                        <div>
+                            <span class="text-xs font-bold text-blue-600 uppercase tracking-wide">ID: ${e.id}</span>
+                            <h3 class="text-lg font-bold text-gray-900 mt-1">${e.name}</h3>
+                            <p class="text-sm text-gray-500 mt-2">Registration forms are dynamically defined by the Admin.</p>
+                        </div>
+                        <div id="enroll-action-${e.id}" class="mt-4">
+                            <button onclick="startEnrollment(${e.id})" class="text-center w-full block bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-bold py-2 rounded-lg text-sm transition">Begin Enrollment</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    async function startEnrollment(examId) {
+        const actionDiv = document.getElementById(`enroll-action-${examId}`);
+        actionDiv.innerHTML = `<p class="text-xs text-center text-gray-500 py-2 animate-pulse">Checking Exam Status...</p>`;
+
+        // 1. Check if we can enroll
+        try {
+            const res = await fetch(`/api/exam/${examId}/can_enroll`);
+            const data = await res.json();
+            if (!data.can_enroll) {
+                actionDiv.innerHTML = `<div class="p-2 bg-orange-50 border border-orange-200 text-orange-800 rounded text-xs text-center font-bold">Registration Data Not Yet Uploaded by Admin</div>`;
+                return;
+            }
+
+            // 2. Fetch Sessions for cascade
+            const sessionRes = await fetch(`/api/exam/${examId}/sessions`);
+            const centers = await sessionRes.json();
+
+            if (centers.length === 0) {
+                actionDiv.innerHTML = `<div class="p-2 bg-red-50 border border-red-200 text-red-800 rounded text-xs text-center font-bold">No Physical Centers Available</div>`;
+                return;
+            }
+
+            // Store data for cascade
+            window[`examCenters_${examId}`] = centers;
+
+            // Build State dropdown
+            const states = [...new Set(centers.map(c => c.state))];
+            let stateOptions = `<option value="">Select State</option>`;
+            states.forEach(s => stateOptions += `<option value="${s}">${s}</option>`);
+
+            actionDiv.innerHTML = `
+                <div class="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2 text-xs">
+                    <h4 class="font-bold text-gray-700">Select Exam Center & Slot</h4>
+                    <select id="sel-state-${examId}" class="w-full p-1.5 border rounded" onchange="updateCities(${examId}, this.value)">
+                        ${stateOptions}
+                    </select>
+                    <select id="sel-city-${examId}" class="w-full p-1.5 border rounded hidden" onchange="updateCenters(${examId}, this.value)">
+                        <option value="">Select City</option>
+                    </select>
+                    <select id="sel-center-${examId}" class="w-full p-1.5 border rounded hidden" onchange="updateDates(${examId}, this.value)">
+                        <option value="">Select Center</option>
+                    </select>
+                    <select id="sel-date-${examId}" class="w-full p-1.5 border rounded hidden" onchange="updateSessions(${examId}, this.value)">
+                        <option value="">Select Date</option>
+                    </select>
+                    <select id="sel-session-${examId}" class="w-full p-1.5 border rounded hidden" onchange="showEnrollButton(${examId}, this.value)">
+                        <option value="">Select Session Time</option>
+                    </select>
+                    <div id="enroll-btn-container-${examId}" class="pt-2 hidden">
+                        <button onclick="goToEnroll(${examId})" class="w-full bg-blue-600 text-white font-bold py-2 rounded shadow hover:bg-blue-700 transition">Proceed to Form</button>
+                    </div>
+                </div>
+            `;
+
+        } catch (e) {
+            actionDiv.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded text-xs text-center">Network Error</div>`;
+        }
+    }
+
+    function updateCities(examId, selectedState) {
+        const centers = window[`examCenters_${examId}`];
+        const cities = [...new Set(centers.filter(c => c.state === selectedState).map(c => c.city))];
+        const citySel = document.getElementById(`sel-city-${examId}`);
+        citySel.innerHTML = `<option value="">Select City</option>` + cities.map(c => `<option value="${c}">${c}</option>`).join('');
+        citySel.classList.remove('hidden');
+        document.getElementById(`sel-center-${examId}`).classList.add('hidden');
+        document.getElementById(`sel-date-${examId}`).classList.add('hidden');
+        document.getElementById(`sel-session-${examId}`).classList.add('hidden');
+        document.getElementById(`enroll-btn-container-${examId}`).classList.add('hidden');
+    }
+
+    function updateCenters(examId, selectedCity) {
+        const selectedState = document.getElementById(`sel-state-${examId}`).value;
+        const centers = window[`examCenters_${examId}`].filter(c => c.state === selectedState && c.city === selectedCity);
+        const centerSel = document.getElementById(`sel-center-${examId}`);
+        centerSel.innerHTML = `<option value="">Select Center</option>` + centers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        centerSel.classList.remove('hidden');
+        document.getElementById(`sel-date-${examId}`).classList.add('hidden');
+        document.getElementById(`sel-session-${examId}`).classList.add('hidden');
+        document.getElementById(`enroll-btn-container-${examId}`).classList.add('hidden');
+    }
+
+    function updateDates(examId, selectedCenterId) {
+        if (!selectedCenterId) return;
+        const center = window[`examCenters_${examId}`].find(c => c.id == selectedCenterId);
+        const dates = [...new Set(center.sessions.map(s => s.date))];
+        const dateSel = document.getElementById(`sel-date-${examId}`);
+        dateSel.innerHTML = `<option value="">Select Date</option>` + dates.map(d => `<option value="${d}">${d}</option>`).join('');
+        dateSel.classList.remove('hidden');
+        document.getElementById(`sel-session-${examId}`).classList.add('hidden');
+        document.getElementById(`enroll-btn-container-${examId}`).classList.add('hidden');
+    }
+
+    function updateSessions(examId, selectedDate) {
+        if (!selectedDate) return;
+        const selectedCenterId = document.getElementById(`sel-center-${examId}`).value;
+        const center = window[`examCenters_${examId}`].find(c => c.id == selectedCenterId);
+        const sessions = center.sessions.filter(s => s.date === selectedDate);
+        const sessSel = document.getElementById(`sel-session-${examId}`);
+        sessSel.innerHTML = `<option value="">Select Session Time</option>` + sessions.map(s => {
+            const availText = s.available > 0 ? `${s.available} slots left` : `FULL`;
+            return `<option value="${s.id}" ${s.available <= 0 ? 'disabled' : ''}>${s.session_time} (${availText})</option>`;
+        }).join('');
+        sessSel.classList.remove('hidden');
+        document.getElementById(`enroll-btn-container-${examId}`).classList.add('hidden');
+    }
+
+    function showEnrollButton(examId, sessionId) {
+        if (sessionId) {
+            document.getElementById(`enroll-btn-container-${examId}`).classList.remove('hidden');
+        } else {
+            document.getElementById(`enroll-btn-container-${examId}`).classList.add('hidden');
+        }
+    }
+
+    function goToEnroll(examId) {
+        const sessionId = document.getElementById(`sel-session-${examId}`).value;
+        if (sessionId) {
+            window.location.href = `/enroll/${examId}?session_id=${sessionId}`;
+        }
+    }
+
+    window.onload = initProfile;
+</script>
+{% endblock %}

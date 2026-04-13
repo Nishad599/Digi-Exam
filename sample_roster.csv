@@ -1,0 +1,4 @@
+reg_no,name,email,center,date,session
+1001,John Doe,johndoe@example.com,CDAC Juhu,2026-05-10,09:00 AM - 11:00 AM
+1002,Jane Smith,janesmith@example.com,CDAC Juhu,2026-05-10,11:30 AM - 01:30 PM
+1003,Rahul Kumar,rahul@example.com,CDAC Kharghar,2026-05-11,09:00 AM - 11:00 AM

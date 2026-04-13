@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-panel w-[98%] max-w-none mx-auto mt-8 p-6 rounded-xl flex flex-col gap-4">
+
+    <!-- Admin Navigation Tabs -->
+    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div class="flex space-x-2">
+            <a href="/admin" class="px-4 py-2 font-bold text-sm rounded bg-blue-600 text-white shadow">Exams Mgmt</a>
+            <a href="/admin/roster" class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Roster &
+                QR</a>
+            <a href="/admin/students"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Student DB</a>
+            <a href="/admin/attendance"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Attendance &
+                Gate</a>
+            <a href="/admin/monitor"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Global
+                Monitor</a>
+            <a href="/admin/conductors"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Conductors</a>
+        </div>
+        <button onclick="logout()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase rounded shadow transition cursor-pointer">Security
+            Logout</button>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-6">
+        <!-- Left Sidebar Operations -->
+        <div class="w-full md:w-1/3 flex flex-col gap-4">
+
+            <!-- Create Nested Exam Card -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm max-h-[600px] overflow-y-auto">
+                <h3 class="font-bold text-gray-800 mb-2 border-b pb-2">1. Create Nested Exam</h3>
+                <form onsubmit="createExam(event)" class="space-y-3" id="examForm">
+                    <input type="text" id="examName" required placeholder="Exam Name (e.g. JEE Main)"
+                        class="w-full px-3 py-2 border rounded text-sm mb-2 font-bold">
+
+                    <div id="centersContainer" class="space-y-2">
+                        <!-- Dynamic Centers injected here -->
+                    </div>
+
+                    <button type="button" onclick="addCenter()"
+                        class="w-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold py-1.5 rounded hover:bg-blue-100 transition shadow-sm">+
+                        ADD PHYSICAL CENTER</button>
+
+                    <div class="mt-4 pt-3 border-t">
+                        <h4 class="font-bold text-gray-700 text-xs mb-2">Dynamic Registration Form Fields (Optional)
+                        </h4>
+                        <div id="dynamicFieldsContainer" class="space-y-2 mb-2">
+                            <!-- Dynamic Fields injected here -->
+                        </div>
+                        <button type="button" onclick="addDynamicField()"
+                            class="w-full bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold py-1.5 rounded hover:bg-purple-100 transition shadow-sm">+
+                            ADD FORM FIELD</button>
+                    </div>
+
+                    <div class="pt-2 border-t mt-4">
+                        <button type="submit"
+                            class="w-full bg-blue-600 text-white font-bold rounded py-2 text-sm hover:bg-blue-700 shadow-md">Deploy
+                            Global Exam Route</button>
+                    </div>
+                </form>
+
+                <!-- Divider -->
+                <div class="flex items-center my-3">
+                    <hr class="flex-grow border-gray-300">
+                    <span class="px-2 text-[10px] font-bold text-gray-400 uppercase">Or Upload JSON File</span>
+                    <hr class="flex-grow border-gray-300">
+                </div>
+
+                <!-- JSON Upload -->
+                <div class="space-y-2">
+                    <input type="file" id="examJson" accept=".json"
+                        class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    <button type="button" onclick="uploadJsonExam()"
+                        class="w-full bg-indigo-600 text-white font-bold rounded py-2 text-sm hover:bg-indigo-700 shadow-md">
+                        Deploy from JSON
+                    </button>
+                    <p class="text-[10px] text-gray-400 text-center">See <code>sample_exam.json</code> in project root
+                        for
+                        format</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Overview Tables -->
+        <div class="w-full md:w-2/3 flex flex-col gap-4">
+            <!-- Active Exams -->
+            <div
+                class="bg-white rounded-lg shadow overflow-hidden border border-gray-200 flex-1 overflow-y-auto min-h-[500px]">
+                <div class="bg-gray-50 px-4 py-2 border-b font-bold text-sm text-gray-700 flex justify-between">
+                    <span>Active Exams List</span>
+                    <button onclick="loadExams()"
+                        class="text-blue-500 hover:text-blue-700 text-xs text-underline">Refresh</button>
+                </div>
+                <table class="min-w-full divide-y divide-gray-200 select-all">
+                    <tbody id="examList" class="divide-y text-xs"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/';
+    }
+
+    async function uploadJsonExam() {
+        const fileInput = document.getElementById('examJson');
+        if (!fileInput.files.length) return alert('Please select a JSON file first.');
+
+        try {
+            const text = await fileInput.files[0].text();
+            const payload = JSON.parse(text);
+
+            if (!payload.name) return alert('JSON must have a "name" field.');
+            if (!payload.centers || !Array.isArray(payload.centers)) return alert('JSON must have a "centers" array.');
+
+            const res = await fetch('/api/admin/exam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('Exam deployed from JSON successfully!');
+                loadExams();
+                fileInput.value = '';
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (err.detail || 'Failed to deploy exam from JSON.'));
+            }
+        } catch (e) {
+            alert('Invalid JSON file: ' + e.message);
+        }
+    }
+
+    let centerCount = 0;
+    function addCenter() {
+        const id = centerCount++;
+        const html = `
+        <div class="border rounded p-2 bg-gray-50 text-xs center-block shadow-sm" id="center-${id}">
+            <div class="flex gap-1 mb-1">
+                <input type="text" class="c-state w-1/2 p-1 border rounded" placeholder="State" required>
+                <input type="text" class="c-city w-1/2 p-1 border rounded" placeholder="City" required>
+            </div>
+            <input type="text" class="c-name w-full mb-1 p-1 border rounded font-bold" placeholder="Center Name" required>
+            <div class="sessions-container-${id} pl-2 border-l-2 border-blue-300 mt-2 space-y-1"></div>
+            <button type="button" onclick="addSession(${id})" class="mt-2 text-[10px] bg-white border border-gray-300 text-gray-800 px-2 py-1 rounded shadow-sm">+ Add Session Date/Time</button>
+            <button type="button" onclick="document.getElementById('center-${id}').remove()" class="mt-2 text-[10px] bg-red-100 text-red-800 px-2 py-1 rounded float-right border border-red-200">Remove Center</button>
+        </div>`;
+        document.getElementById('centersContainer').insertAdjacentHTML('beforeend', html);
+    }
+
+    function addSession(cId) {
+        const today = new Date().toISOString().split('T')[0];
+        const html = `
+        <div class="session-block flex gap-1 mt-1 items-center bg-white p-1 rounded border shadow-sm">
+            <input type="date" class="s-date border p-1 w-1/3 text-[10px]" min="${today}" required>
+            <input type="text" class="s-time border p-1 w-1/3 text-[10px]" placeholder="Morning" required>
+            <input type="number" class="s-cap border p-1 w-1/4 text-[10px]" placeholder="Seats" required>
+            <button type="button" onclick="this.parentElement.remove()" class="text-red-500 font-bold px-1 hover:text-red-700">X</button>
+        </div>`;
+        document.querySelector(`.sessions-container-${cId}`).insertAdjacentHTML('beforeend', html);
+    }
+
+    let fieldCount = 0;
+    function addDynamicField() {
+        const id = fieldCount++;
+        const html = `
+        <div class="dynamic-field-block border rounded p-2 bg-gray-50 text-[10px] shadow-sm relative">
+            <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-1 text-red-500 font-bold hover:text-red-700">X</button>
+            <div class="grid grid-cols-2 gap-2 mb-1">
+                <input type="text" class="df-label p-1 border rounded w-full" placeholder="Label (e.g. Father's Name)" required>
+                <input type="text" class="df-id p-1 border rounded w-full" placeholder="ID (e.g. fathers_name)" required>
+            </div>
+            <div class="flex items-center gap-2">
+                <select class="df-type p-1 border rounded" onchange="toggleOptions(this, ${id})">
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="select">Dropdown (Select)</option>
+                </select>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" class="df-required" checked> Required</label>
+            </div>
+            <div class="df-options-${id} hidden mt-1">
+                <input type="text" class="df-options-input w-full p-1 border rounded" placeholder="Comma separated options (e.g. Male, Female)">
+            </div>
+        </div>`;
+        document.getElementById('dynamicFieldsContainer').insertAdjacentHTML('beforeend', html);
+    }
+
+    function toggleOptions(selectEl, id) {
+        const optDiv = document.querySelector(`.df-options-${id}`);
+        if (selectEl.value === 'select') {
+            optDiv.classList.remove('hidden');
+            optDiv.querySelector('input').setAttribute('required', 'true');
+        } else {
+            optDiv.classList.add('hidden');
+            optDiv.querySelector('input').removeAttribute('required');
+        }
+    }
+
+    async function createExam(e) {
+        e.preventDefault();
+
+        const config = [];
+        document.querySelectorAll('.dynamic-field-block').forEach(fb => {
+            const field = {
+                label: fb.querySelector('.df-label').value,
+                id: fb.querySelector('.df-id').value,
+                type: fb.querySelector('.df-type').value,
+                required: fb.querySelector('.df-required').checked
+            };
+            if (field.type === 'select') {
+                field.options = fb.querySelector('.df-options-input').value.split(',').map(o => o.trim()).filter(o => o);
+            }
+            config.push(field);
+        });
+
+        const payload = {
+            name: document.getElementById('examName').value,
+            verification_mode: "FACE_ONLY",
+            registration_form_config: config,
+            centers: []
+        };
+
+        document.querySelectorAll('.center-block').forEach(cb => {
+            const center = {
+                state: cb.querySelector('.c-state').value,
+                city: cb.querySelector('.c-city').value,
+                name: cb.querySelector('.c-name').value,
+                sessions: []
+            };
+            cb.querySelectorAll('.session-block').forEach(sb => {
+                center.sessions.push({
+                    date: sb.querySelector('.s-date').value,
+                    session_time: sb.querySelector('.s-time').value,
+                    capacity: parseInt(sb.querySelector('.s-cap').value) || 0
+                });
+            });
+            payload.centers.push(center);
+        });
+
+        const res = await fetch('/api/admin/exam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            alert('Hierarchical Architecture Mapped & Deployed!');
+            loadExams();
+            document.getElementById('centersContainer').innerHTML = '';
+            document.getElementById('examName').value = '';
+        } else {
+            alert("Error deploying hierarchy architecture bounds.");
+        }
+    }
+
+    async function loadExams() {
+        const res = await fetch('/api/admin/exams');
+        const exams = await res.json();
+        const tbody = document.getElementById('examList');
+        tbody.innerHTML = '';
+        exams.forEach(e => {
+            let centersHtml = '';
+            if (e.centers && e.centers.length > 0) {
+                e.centers.forEach(c => {
+                    let sessHtml = '';
+                    c.sessions.forEach(s => {
+                        sessHtml += `<div class="text-[9.5px] text-gray-500 ml-2 border-l-2 pl-2 mt-0.5 border-gray-300 font-mono">📅 ${s.date} [${s.session_time}] &middot; 🪑 ${s.capacity} seats</div>`;
+                    });
+                    centersHtml += `<div class="mt-2 p-2 bg-gray-50 rounded border text-[10px] shadow-sm"><span class="font-bold text-blue-800 tracking-wide uppercase">📍 ${c.name} (${c.city}, ${c.state})</span>${sessHtml}</div>`;
+                });
+            } else {
+                centersHtml = `<div class="text-[10px] text-gray-400 italic mt-1">No physical centers mapped.</div>`;
+            }
+
+            tbody.innerHTML += `
+            <tr>
+                <td class="px-4 py-3 bg-white border-b hover:bg-gray-50 transition block w-full">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-sm"><b>ID: ${e.id}</b> - ${e.name}</span>
+                        <div class="flex gap-2">
+                            <a href="/api/admin/exam/${e.id}/export_package" download="exam_${e.id}.digipack" class="text-white bg-indigo-500 hover:bg-indigo-600 px-2 py-1 rounded text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Download Offline Gate Package">📦 Download Package</a>
+                            <button onclick="deleteExam(${e.id})" class="text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-[10px] font-bold shadow-sm transition">Delete</button>
+                        </div>
+                    </div>
+                    <div class="w-full">
+                        ${centersHtml}
+                    </div>
+                </td>
+            </tr>`;
+        });
+    }
+
+    async function deleteExam(id) {
+        if (!confirm("⚠️ WARNING: Are you sure you want to completely PURGE Exam #" + id + "?\n\nThis will permanently delete the exam, all of its authorized rosters, and every single student enrollment associated with it!")) return;
+        const res = await fetch(`/api/admin/exam/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadExams();
+        } else {
+            alert('Failed to delete exam.');
+        }
+    }
+
+    window.onload = () => { loadExams(); }
+</script>
+{% endblock %}

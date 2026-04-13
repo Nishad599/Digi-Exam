@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-panel w-[98%] max-w-none mx-auto mt-8 p-6 rounded-xl flex flex-col gap-4">
+
+    <!-- Admin Navigation Tabs -->
+    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div class="flex space-x-2">
+            <a href="/admin" class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Exams Mgmt</a>
+            <a href="/admin/roster" class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Roster &
+                QR</a>
+            <a href="/admin/students"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Student DB</a>
+            <a href="/admin/attendance"
+                class="px-4 py-2 font-bold text-sm rounded bg-blue-600 text-white shadow">Attendance & Gate</a>
+            <a href="/admin/monitor" class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Global
+                Monitor</a>
+            <a href="/admin/conductors"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100">Conductors</a>
+        </div>
+        <button onclick="logout()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase rounded shadow transition cursor-pointer">Security
+            Logout</button>
+    </div>
+
+    <!-- Attendance Module -->
+    <div class="w-full flex flex-col gap-4">
+
+        <!-- Controls & Metrics Header -->
+        <div
+            class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex flex-col w-full md:w-1/3">
+                <label class="text-xs font-bold text-gray-500 uppercase">Select Target Exam</label>
+                <select id="examSelector"
+                    class="form-select w-full border rounded px-3 py-2 text-sm bg-gray-50 font-bold"
+                    onchange="loadAttendance()">
+                    <option value="">Loading Exams...</option>
+                </select>
+            </div>
+
+            <div class="flex gap-6 items-center">
+                <div class="text-center">
+                    <p class="text-xs font-bold text-gray-500 uppercase">Enrolled</p>
+                    <p id="metricTotal" class="text-2xl font-black text-gray-800">0</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs font-bold text-gray-500 uppercase">Present</p>
+                    <p id="metricPresent" class="text-2xl font-black text-green-600">0</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs font-bold text-gray-500 uppercase">Absent</p>
+                    <p id="metricAbsent" class="text-2xl font-black text-red-500">0</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-end">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-2">Master Gate Control</p>
+                <button id="gateToggleButton" onclick="toggleGate()"
+                    class="px-6 py-2 rounded-lg font-bold text-white shadow transition flex items-center gap-2 bg-gray-400 cursor-not-allowed"
+                    disabled>
+                    <div id="gateStatusIndicator" class="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+                    <span id="gateButtonText">Select Exam First</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cascading Filters -->
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end"
+            id="filterContainer">
+            <div class="flex-1 min-w-[150px]">
+                <label class="text-xs font-bold text-gray-500 uppercase">State</label>
+                <select id="filterState"
+                    class="form-select w-full border rounded px-3 py-1.5 text-sm font-bold bg-gray-50"
+                    onchange="updateFilterCities()">
+                    <option value="">All States</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="text-xs font-bold text-gray-500 uppercase">City</label>
+                <select id="filterCity"
+                    class="form-select w-full border rounded px-3 py-1.5 text-sm font-bold bg-gray-50"
+                    onchange="updateFilterCenters()" disabled>
+                    <option value="">All Cities</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="text-xs font-bold text-gray-500 uppercase">Center</label>
+                <select id="filterCenter"
+                    class="form-select w-full border rounded px-3 py-1.5 text-sm font-bold bg-gray-50"
+                    onchange="updateFilterSessions()" disabled>
+                    <option value="">All Centers</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="text-xs font-bold text-gray-500 uppercase">Session Time</label>
+                <select id="filterSession"
+                    class="form-select w-full border rounded px-3 py-1.5 text-sm font-bold bg-gray-50"
+                    onchange="filterAttendance()" disabled>
+                    <option value="">All Sessions</option>
+                </select>
+            </div>
+            <div class="flex-none">
+                <input type="text" id="attendanceSearch" placeholder="Search keyword..."
+                    class="border rounded px-3 py-1.5 text-sm w-48 font-bold bg-gray-50" onkeyup="filterAttendance()">
+            </div>
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm overflow-x-auto min-h-[400px]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-gray-800 text-lg">Center-Wise Attendance Logs</h3>
+                <button onclick="exportAttendanceCsv()" id="exportBtn"
+                    class="hidden items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export CSV Report
+                </button>
+            </div>
+            <table class="min-w-full text-left text-sm" id="attendanceTable">
+                <thead class="bg-gray-50 text-gray-600 uppercase font-bold text-xs sticky top-0 border-b">
+                    <tr>
+                        <th class="py-3 px-4">Reg No</th>
+                        <th class="py-3 px-4">Student Name</th>
+                        <th class="py-3 px-4">Location</th>
+                        <th class="py-3 px-4">Center & Session</th>
+                        <th class="py-3 px-4">Time of Entry</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 text-right">Gate Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-gray-700" id="attendanceGrid">
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-gray-400 italic">Please select an exam to load
+                            attendance logs.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes flashRow {
+        0% {
+            background-color: #dbeafe;
+        }
+
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .flash-row {
+        animation: flashRow 2s ease-out;
+    }
+</style>
+
+<script>
+    let currentExams = [];
+    let currentExamId = null;
+    let currentAttendance = [];
+    let _ws = null;
+    let _reconnectTimer = null;
+
+    async function initAdmin() {
+        try {
+            const res = await fetch('/api/me');
+            if (res.ok) {
+                const user = await res.json();
+                if (user.role !== 'admin') window.location.href = '/';
+            } else {
+                window.location.href = '/';
+            }
+        } catch (e) {
+            window.location.href = '/';
+        }
+
+        await loadExamsDropdown();
+    }
+
+    async function logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/';
+    }
+
+    function exportAttendanceCsv() {
+        if (!currentExamId) { alert('Please select an exam first.'); return; }
+        const a = document.createElement('a');
+        a.href = `/api/admin/exam/${currentExamId}/attendance/export`;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    async function loadExamsDropdown() {
+        const res = await fetch('/api/admin/exams');
+        currentExams = await res.json();
+
+        const sel = document.getElementById('examSelector');
+        if (currentExams.length === 0) {
+            sel.innerHTML = '<option value="">No exams available</option>';
+            return;
+        }
+
+        let html = '<option value="">-- Choose an Exam --</option>';
+        currentExams.forEach(e => {
+            html += `<option value="${e.id}">${e.name}</option>`;
+        });
+        sel.innerHTML = html;
+    }
+
+    // --- WebSocket ---
+
+    function connectWS(examId) {
+        disconnectWS();
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        _ws = new WebSocket(`${protocol}//${location.host}/ws/monitor/${examId}`);
+
+        _ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                handleWSMessage(msg);
+            } catch (e) { console.error('WS parse error:', e); }
+        };
+
+        _ws.onclose = () => {
+            if (currentExamId == examId) {
+                _reconnectTimer = setTimeout(() => connectWS(examId), 3000);
+            }
+        };
+    }
+
+    function disconnectWS() {
+        if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+        if (_ws) { _ws.onclose = null; _ws.close(); _ws = null; }
+    }
+
+    function handleWSMessage(msg) {
+        if (msg.type === 'attendance') {
+            const entry = currentAttendance.find(a => a.enrollment_id === msg.enrollment_id);
+            if (entry) {
+                entry.attendance = msg.attendance_marked;
+                entry.attendance_time = msg.attendance_time;
+                renderAttendanceTable();
+                // Flash the updated row
+                setTimeout(() => {
+                    const row = document.querySelector(`tr[data-enrollment-id="${msg.enrollment_id}"]`);
+                    if (row) row.classList.add('flash-row');
+                }, 50);
+            }
+        } else if (msg.type === 'gate_toggle') {
+            const targetExam = currentExams.find(e => e.id == currentExamId);
+            if (targetExam) targetExam.gate_open = msg.gate_open;
+            updateGateUI(msg.gate_open);
+        } else if (msg.type === 'sync_batch') {
+            loadAttendance();
+        }
+    }
+
+    // --- Data Loading ---
+
+    async function loadAttendance() {
+        const sel = document.getElementById('examSelector');
+        currentExamId = sel.value;
+        const grid = document.getElementById('attendanceGrid');
+
+        if (!currentExamId) {
+            disconnectWS();
+            grid.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400 italic">Please select an exam to load attendance logs.</td></tr>';
+            document.getElementById('gateToggleButton').disabled = true;
+            document.getElementById('gateToggleButton').className = "px-6 py-2 rounded-lg font-bold text-white shadow transition flex items-center gap-2 bg-gray-400 cursor-not-allowed";
+            document.getElementById('gateButtonText').innerText = "Select Exam First";
+            document.getElementById('gateStatusIndicator').className = "w-3 h-3 rounded-full bg-white opacity-50";
+            const expBtn = document.getElementById('exportBtn');
+            expBtn.classList.add('hidden');
+            expBtn.classList.remove('flex');
+            return;
+        }
+
+        // Connect WebSocket for live updates
+        connectWS(currentExamId);
+
+        const targetExam = currentExams.find(e => e.id == currentExamId);
+        updateGateUI(targetExam.gate_open);
+
+        grid.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400 animate-pulse">Loading logs...</td></tr>';
+
+        try {
+            const res = await fetch(`/api/admin/exam/${currentExamId}/attendance`);
+            currentAttendance = await res.json();
+            // Show export button now that we have data
+            const btn = document.getElementById('exportBtn');
+            btn.classList.remove('hidden');
+            btn.classList.add('flex');
+            buildFilterStates();
+            renderAttendanceTable();
+        } catch (e) {
+            grid.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-red-400">Error loading data.</td></tr>';
+        }
+    }
+
+    function buildFilterStates() {
+        const states = [...new Set(currentAttendance.map(a => a.state))].filter(Boolean);
+        let html = '<option value="">All States</option>';
+        states.forEach(s => html += `<option value="${s}">${s}</option>`);
+        document.getElementById('filterState').innerHTML = html;
+        resetFilter('filterCity', 'All Cities');
+        resetFilter('filterCenter', 'All Centers');
+        resetFilter('filterSession', 'All Sessions');
+        document.getElementById('attendanceSearch').value = '';
+    }
+
+    function resetFilter(id, text) {
+        const el = document.getElementById(id);
+        el.innerHTML = `<option value="">${text}</option>`;
+        el.disabled = true;
+    }
+
+    function updateFilterCities() {
+        const state = document.getElementById('filterState').value;
+        const cityEl = document.getElementById('filterCity');
+        if (!state) {
+            resetFilter('filterCity', 'All Cities');
+            resetFilter('filterCenter', 'All Centers');
+            resetFilter('filterSession', 'All Sessions');
+        } else {
+            const cities = [...new Set(currentAttendance.filter(a => a.state === state).map(a => a.city))].filter(Boolean);
+            let html = '<option value="">All Cities</option>';
+            cities.forEach(c => html += `<option value="${c}">${c}</option>`);
+            cityEl.innerHTML = html;
+            cityEl.disabled = false;
+            resetFilter('filterCenter', 'All Centers');
+            resetFilter('filterSession', 'All Sessions');
+        }
+        filterAttendance();
+    }
+
+    function updateFilterCenters() {
+        const state = document.getElementById('filterState').value;
+        const city = document.getElementById('filterCity').value;
+        const centerEl = document.getElementById('filterCenter');
+        if (!city) {
+            resetFilter('filterCenter', 'All Centers');
+            resetFilter('filterSession', 'All Sessions');
+        } else {
+            const centers = [...new Set(currentAttendance.filter(a => a.state === state && a.city === city).map(a => a.center))].filter(Boolean);
+            let html = '<option value="">All Centers</option>';
+            centers.forEach(c => html += `<option value="${c}">${c}</option>`);
+            centerEl.innerHTML = html;
+            centerEl.disabled = false;
+            resetFilter('filterSession', 'All Sessions');
+        }
+        filterAttendance();
+    }
+
+    function updateFilterSessions() {
+        const state = document.getElementById('filterState').value;
+        const city = document.getElementById('filterCity').value;
+        const center = document.getElementById('filterCenter').value;
+        const sessionEl = document.getElementById('filterSession');
+        if (!center) {
+            resetFilter('filterSession', 'All Sessions');
+        } else {
+            const sessions = [...new Set(currentAttendance.filter(a => a.state === state && a.city === city && a.center === center).map(a => a.session))].filter(Boolean);
+            let html = '<option value="">All Sessions</option>';
+            sessions.forEach(s => html += `<option value="${s}">${s}</option>`);
+            sessionEl.innerHTML = html;
+            sessionEl.disabled = false;
+        }
+        filterAttendance();
+    }
+
+    function filterAttendance() {
+        renderAttendanceTable();
+    }
+
+    function renderAttendanceTable() {
+        const grid = document.getElementById('attendanceGrid');
+        const filterText = document.getElementById('attendanceSearch').value.toLowerCase();
+
+        const fState = document.getElementById('filterState').value;
+        const fCity = document.getElementById('filterCity').value;
+        const fCenter = document.getElementById('filterCenter').value;
+        const fSession = document.getElementById('filterSession').value;
+
+        let total = 0, present = 0, absent = 0;
+        let html = '';
+
+        currentAttendance.forEach(a => {
+            if (fState && a.state !== fState) return;
+            if (fCity && a.city !== fCity) return;
+            if (fCenter && a.center !== fCenter) return;
+            if (fSession && a.session !== fSession) return;
+
+            const searchable = `${a.reg_no} ${a.student_name} ${a.center} ${a.city} ${a.state}`.toLowerCase();
+            if (filterText && !searchable.includes(filterText)) return;
+
+            if (a.attendance) present++;
+            else absent++;
+            total++;
+
+            const statusBadge = a.attendance
+                ? `<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> PRESENT</span>`
+                : `<span class="bg-red-50 text-red-600 text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> ABSENT</span>`;
+
+            const overrideAction = a.attendance
+                ? `<button onclick="toggleAttendance(${a.enrollment_id})" class="text-xs hover:text-red-600 text-gray-400 font-bold px-2 py-1 border rounded transition">Revoke</button>`
+                : `<button onclick="toggleAttendance(${a.enrollment_id})" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1 border border-indigo-200 rounded shadow-sm transition">Mark Present</button>`;
+
+            const timeStr = a.attendance_time
+                ? `<span class="text-xs font-mono bg-blue-50 text-blue-800 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${a.attendance_time}</span>`
+                : `<span class="text-xs text-gray-400">--</span>`;
+
+            html += `
+            <tr class="hover:bg-gray-50 transition border-b border-gray-100" data-enrollment-id="${a.enrollment_id}">
+                <td class="py-3 px-4 font-mono text-xs text-blue-600 font-bold">${a.reg_no}</td>
+                <td class="py-3 px-4 font-bold text-gray-800">${a.student_name}</td>
+                <td class="py-3 px-4 text-gray-500 text-xs">${a.city}, ${a.state}</td>
+                <td class="py-3 px-4 text-gray-700 text-xs font-semibold">${a.center}<br><span class="text-gray-400 font-normal mt-0.5 block">${a.session}</span></td>
+                <td class="py-3 px-4">${timeStr}</td>
+                <td class="py-3 px-4">${statusBadge}</td>
+                <td class="py-3 px-4 text-right">${overrideAction}</td>
+            </tr>`;
+        });
+
+        document.getElementById('metricTotal').innerText = total;
+        document.getElementById('metricPresent').innerText = present;
+        document.getElementById('metricAbsent').innerText = absent;
+
+        if (html === '') {
+            grid.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400 italic">No candidates match the filter criteria.</td></tr>';
+        } else {
+            grid.innerHTML = html;
+        }
+    }
+
+    async function toggleGate() {
+        if (!currentExamId) return;
+        const btn = document.getElementById('gateToggleButton');
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`/api/admin/exam/${currentExamId}/toggle_gate`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                const targetExam = currentExams.find(e => e.id == currentExamId);
+                targetExam.gate_open = data.gate_open;
+                updateGateUI(data.gate_open);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        btn.disabled = false;
+    }
+
+    function updateGateUI(isOpen) {
+        const btn = document.getElementById('gateToggleButton');
+        const ind = document.getElementById('gateStatusIndicator');
+        const txt = document.getElementById('gateButtonText');
+
+        btn.disabled = false;
+
+        if (isOpen) {
+            btn.className = "px-6 py-2 rounded-lg font-bold text-white shadow transition flex items-center gap-2 bg-green-500 hover:bg-green-600";
+            ind.className = "w-3 h-3 rounded-full bg-white animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]";
+            txt.innerText = "GATE OPEN (Auto-Verify Active)";
+        } else {
+            btn.className = "px-6 py-2 rounded-lg font-bold text-white shadow transition flex items-center gap-2 bg-red-500 hover:bg-red-600";
+            ind.className = "w-3 h-3 rounded-full bg-red-200";
+            txt.innerText = "GATE CLOSED (Devices Locked)";
+        }
+    }
+
+    async function toggleAttendance(enrollmentId) {
+        try {
+            const res = await fetch(`/api/admin/attendance/${enrollmentId}/mark`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                const entry = currentAttendance.find(a => a.enrollment_id === enrollmentId);
+                if (entry) {
+                    entry.attendance = data.attendance_marked;
+                    filterAttendance();
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    window.addEventListener('beforeunload', disconnectWS);
+    window.onload = initAdmin;
+</script>
+{% endblock %}

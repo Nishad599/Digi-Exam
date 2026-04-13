@@ -1,0 +1,87 @@
+{
+    "name": "JEE Main 2026",
+    "verification_mode": "FACE_ONLY",
+    "registration_form_config": [
+        {
+            "label": "Father's Name",
+            "id": "fathers_name",
+            "type": "text",
+            "required": true
+        },
+        {
+            "label": "Date of Birth",
+            "id": "dob",
+            "type": "date",
+            "required": true
+        },
+        {
+            "label": "Category",
+            "id": "category",
+            "type": "select",
+            "required": true,
+            "options": [
+                "General",
+                "OBC",
+                "SC/ST"
+            ]
+        }
+    ],
+    "centers": [
+        {
+            "state": "Maharashtra",
+            "city": "Mumbai",
+            "name": "Vidyalankar Institute",
+            "sessions": [
+                {
+                    "date": "2026-04-15",
+                    "session_time": "Morning",
+                    "capacity": 120
+                },
+                {
+                    "date": "2026-04-15",
+                    "session_time": "Afternoon",
+                    "capacity": 100
+                }
+            ]
+        },
+        {
+            "state": "Karnataka",
+            "city": "Bangalore",
+            "name": "RV College of Engineering",
+            "sessions": [
+                {
+                    "date": "2026-04-15",
+                    "session_time": "Morning",
+                    "capacity": 200
+                },
+                {
+                    "date": "2026-04-16",
+                    "session_time": "Morning",
+                    "capacity": 150
+                }
+            ]
+        },
+        {
+            "state": "Delhi",
+            "city": "New Delhi",
+            "name": "IIT Delhi Convention Center",
+            "sessions": [
+                {
+                    "date": "2026-04-15",
+                    "session_time": "Morning",
+                    "capacity": 300
+                },
+                {
+                    "date": "2026-04-15",
+                    "session_time": "Afternoon",
+                    "capacity": 250
+                },
+                {
+                    "date": "2026-04-16",
+                    "session_time": "Morning",
+                    "capacity": 300
+                }
+            ]
+        }
+    ]
+}

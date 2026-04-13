@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conductor Management — Digi-Exam Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Nav -->
+    <nav
+        class="bg-white border-b border-gray-200 shadow-sm px-4 py-2 flex flex-wrap gap-2 items-center justify-between">
+        <div class="flex flex-wrap gap-2">
+            <a href="/admin"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">Exams Mgmt</a>
+            <a href="/admin/roster"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">Roster &amp;
+                QR</a>
+            <a href="/admin/students"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">Student DB</a>
+            <a href="/admin/attendance"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">Attendance
+                &amp; Gate</a>
+            <a href="/admin/monitor"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 transition">Global
+                Monitor</a>
+            <a href="/admin/conductors"
+                class="px-4 py-2 rounded-lg text-sm font-bold text-white bg-indigo-600 shadow-sm">Conductors</a>
+        </div>
+        <button onclick="logout()"
+            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-black transition shadow-sm">SECURITY
+            LOGOUT</button>
+    </nav>
+
+    <div class="max-w-6xl mx-auto p-6 space-y-6">
+
+        <!-- Add Conductor Form -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <h2 class="text-sm font-black uppercase tracking-wider text-gray-700 mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span> Create New Conductor
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                <input id="dispName" placeholder="Display Name"
+                    class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 col-span-1">
+                <input id="uname" placeholder="Username"
+                    class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 col-span-1">
+                <input id="passwd" type="password" placeholder="Password"
+                    class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 col-span-1">
+                <input id="devicePin" type="text" placeholder="Edge PIN (e.g. 5678)" maxlength="6"
+                    class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 col-span-1 font-mono text-center tracking-widest">
+                <select id="centerSelect"
+                    class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 col-span-1 bg-white">
+                    <option value="">Loading centers...</option>
+                </select>
+                <button onclick="createConductor()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-lg px-4 py-2.5 transition shadow-sm col-span-1">+
+                    Add Conductor</button>
+            </div>
+            <p id="formMsg" class="text-xs mt-2 text-gray-400 h-4"></p>
+        </div>
+
+        <!-- Conductors Table -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="font-black text-xs uppercase tracking-wider text-gray-600">Active Conductors</span>
+                <button onclick="loadConductors()"
+                    class="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1">↻
+                    Refresh</button>
+            </div>
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">#
+                        </th>
+                        <th class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                            Name / Username</th>
+                        <th class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                            Exam</th>
+                        <th class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                            Assigned Center</th>
+                        <th class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                            Action</th>
+                    </tr>
+                </thead>
+                <tbody id="conductorList" class="divide-y divide-gray-50">
+                    <tr>
+                        <td colspan="5" class="text-center py-10 text-gray-400 italic">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        let allCenters = [];
+
+        async function loadCenters() {
+            const res = await fetch('/api/admin/exams');
+            const exams = await res.json();
+            allCenters = [];
+            exams.forEach(e => (e.centers || []).forEach(c => allCenters.push({ id: c.id, label: `[${e.name}] ${c.name} — ${c.city}, ${c.state}` })));
+            const sel = document.getElementById('centerSelect');
+            sel.innerHTML = '<option value="">Select Center</option>' + allCenters.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+        }
+
+        async function loadConductors() {
+            const res = await fetch('/api/admin/conductors');
+            const data = await res.json();
+            const tbody = document.getElementById('conductorList');
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 italic">No conductors created yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(c => `
+            <tr class="hover:bg-gray-50 transition">
+                <td class="px-4 py-3 text-gray-400 font-mono">${c.id}</td>
+                <td class="px-4 py-3">
+                    <span class="font-bold text-gray-800">${c.display_name}</span><br>
+                    <span class="text-gray-500">@${c.username}</span>
+                </td>
+                <td class="px-4 py-3 text-gray-600 font-medium">${c.exam_name || '—'}</td>
+                <td class="px-4 py-3">
+                    <span class="font-bold text-gray-800">${c.center_name || '—'}</span><br>
+                    <span class="text-gray-400">${c.city || ''}, ${c.state || ''}</span>
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <button onclick="deleteConductor(${c.id})" class="bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 text-[10px] px-3 py-1.5 rounded-lg font-bold transition">Remove</button>
+                </td>
+            </tr>`).join('');
+        }
+
+        async function createConductor() {
+            const body = {
+                display_name: document.getElementById('dispName').value.trim(),
+                username: document.getElementById('uname').value.trim(),
+                password: document.getElementById('passwd').value.trim(),
+                device_pin: document.getElementById('devicePin').value.trim() || '1234',
+                center_id: parseInt(document.getElementById('centerSelect').value),
+            };
+            const msg = document.getElementById('formMsg');
+            if (!body.display_name || !body.username || !body.password || !body.center_id) {
+                msg.textContent = '⚠ All fields are required.';
+                msg.className = 'text-xs mt-2 text-orange-500 h-4';
+                return;
+            }
+            const res = await fetch('/api/admin/conductors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (res.ok) {
+                msg.textContent = `✅ ${data.message}`;
+                msg.className = 'text-xs mt-2 text-emerald-600 h-4';
+                ['dispName', 'uname', 'passwd', 'devicePin'].forEach(id => document.getElementById(id).value = '');
+                loadConductors();
+            } else {
+                msg.textContent = `❌ ${data.detail || 'Create failed'}`;
+                msg.className = 'text-xs mt-2 text-red-600 h-4';
+            }
+        }
+
+        async function deleteConductor(id) {
+            if (!confirm('Remove this conductor? Their login will be permanently deleted.')) return;
+            const res = await fetch(`/api/admin/conductors/${id}`, { method: 'DELETE' });
+            if (res.ok) loadConductors();
+        }
+
+        loadCenters();
+        loadConductors();
+    </script>
+</body>
+
+</html>

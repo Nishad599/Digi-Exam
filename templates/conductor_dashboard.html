@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conductor Dashboard — Digi-Exam</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+        }
+
+        .gate-open {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .gate-closed {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .gate-complete {
+            border-color: #6366f1;
+            background: #eef2ff;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- Nav -->
+    <div class="bg-white border-b border-gray-200 shadow-sm px-5 py-3 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div id="gateIndicator" class="w-3 h-3 rounded-full bg-gray-300"></div>
+            <span class="font-black text-sm uppercase tracking-widest text-gray-700">Conductor Portal</span>
+            <span id="centerLabel"
+                class="text-xs font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Loading...</span>
+        </div>
+        <button onclick="logout()"
+            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-black transition shadow-sm">Logout</button>
+    </div>
+
+    <div class="flex-1 p-5 max-w-6xl mx-auto w-full space-y-5">
+
+        <!-- Status + Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Gate Status Card -->
+            <div id="gateCard"
+                class="bg-white rounded-xl border-2 shadow-sm p-5 col-span-1 flex flex-col items-center justify-center text-center transition-all duration-500">
+                <p id="gateStatusLabel" class="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Gate
+                    Status</p>
+                <p id="gateStatusVal" class="text-2xl font-black text-gray-400">—</p>
+            </div>
+            <!-- Stats -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Enrolled</p>
+                <p id="statEnrolled" class="text-3xl font-black text-gray-800">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-emerald-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold mb-1">Attended</p>
+                <p id="statAttended" class="text-3xl font-black text-emerald-600">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-orange-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-1">Pending / No-Show</p>
+                <p id="statPending" class="text-3xl font-black text-orange-500">—</p>
+            </div>
+        </div>
+
+        <!-- Gate Controls -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 class="text-xs font-black uppercase tracking-wider text-gray-500 mb-4">Gate Controls</h3>
+            <div class="flex flex-wrap gap-3">
+                <button id="btnOpen" onclick="openGate()"
+                    class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                    🔓 Open Gate
+                </button>
+                <button id="btnClose" onclick="closeGate()"
+                    class="flex-1 py-3 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-black rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                    🔒 Close Gate
+                </button>
+                <a id="btnPackage" href="/api/conductor/export_package" download
+                    class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2 text-center border-l-4 border-indigo-400">
+                    📦 Download Offline Package
+                </a>
+            </div>
+            <p id="controlMsg" class="text-xs mt-3 text-gray-400 h-4"></p>
+        </div>
+
+        <!-- Attendance Feed -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="font-black text-xs uppercase tracking-wider text-gray-600">Attendance Feed — <span
+                        id="feedCenter" class="text-indigo-600">My Center</span></span>
+                <button onclick="loadAttendance()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold">↻
+                    Refresh</button>
+            </div>
+            <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table class="min-w-full text-xs">
+                    <thead class="bg-gray-50 border-b border-gray-100 sticky top-0">
+                        <tr>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Reg No</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Name</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Session</th>
+                            <th
+                                class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Status</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTable" class="divide-y divide-gray-50">
+                        <tr>
+                            <td colspan="5" class="text-center py-10 text-gray-400 italic">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/conductor/my_center');
+                if (!res.ok) { window.location.href = '/'; return; }
+                const data = await res.json();
+
+                // Update labels
+                document.getElementById('centerLabel').textContent = `${data.center.name} — ${data.center.city}, ${data.center.state}`;
+                document.getElementById('feedCenter').textContent = data.center.name;
+                document.title = `Conductor — ${data.center.name}`;
+
+                // Stats
+                document.getElementById('statEnrolled').textContent = data.stats.total_enrolled;
+                document.getElementById('statAttended').textContent = data.stats.total_attended;
+                document.getElementById('statPending').textContent = data.stats.pending;
+
+                // Gate status
+                const card = document.getElementById('gateCard');
+                const ind = document.getElementById('gateIndicator');
+                const val = document.getElementById('gateStatusVal');
+                if (data.exam.is_complete) {
+                    card.className = 'rounded-xl border-2 shadow-sm p-5 col-span-1 flex flex-col items-center justify-center text-center transition-all duration-500 gate-complete';
+                    ind.className = 'w-3 h-3 rounded-full bg-indigo-500';
+                    val.textContent = '✅ COMPLETE';
+                    val.className = 'text-xl font-black text-indigo-700';
+                } else if (data.exam.gate_open) {
+                    card.className = 'rounded-xl border-2 shadow-sm p-5 col-span-1 flex flex-col items-center justify-center text-center transition-all duration-500 gate-open';
+                    ind.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+                    val.textContent = '🔓 OPEN';
+                    val.className = 'text-2xl font-black text-emerald-700';
+                } else {
+                    card.className = 'rounded-xl border-2 shadow-sm p-5 col-span-1 flex flex-col items-center justify-center text-center transition-all duration-500 gate-closed';
+                    ind.className = 'w-3 h-3 rounded-full bg-red-500';
+                    val.textContent = '🔒 CLOSED';
+                    val.className = 'text-2xl font-black text-red-600';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadAttendance() {
+            const res = await fetch('/api/conductor/attendance');
+            const data = await res.json();
+            const tbody = document.getElementById('attendanceTable');
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 italic">No enrollments in this center yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(e => `
+            <tr class="hover:bg-gray-50 transition ${e.attendance_marked ? 'bg-emerald-50/50' : ''}">
+                <td class="px-4 py-3 font-bold font-mono text-gray-700">${e.reg_no}</td>
+                <td class="px-4 py-3 font-bold text-gray-800">${e.name}</td>
+                <td class="px-4 py-3 text-gray-500 text-[11px]">${e.session}</td>
+                <td class="px-4 py-3 text-center">
+                    ${e.attendance_marked
+                    ? '<span class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200">PRESENT</span>'
+                    : '<span class="px-3 py-1 rounded-full text-[10px] font-black bg-orange-100 text-orange-600 border border-orange-200">PENDING</span>'}
+                </td>
+                <td class="px-4 py-3 text-gray-400 text-[11px] whitespace-nowrap">${e.attendance_time}</td>
+            </tr>`).join('');
+        }
+
+        async function openGate() {
+            const res = await fetch('/api/conductor/gate/open', { method: 'POST' });
+            const msg = document.getElementById('controlMsg');
+            if (res.ok) { msg.textContent = '✅ Gate is now OPEN.'; msg.className = 'text-xs mt-3 text-emerald-600 h-4'; loadDashboard(); }
+            else { msg.textContent = '❌ Failed to open gate.'; msg.className = 'text-xs mt-3 text-red-600 h-4'; }
+        }
+
+        async function closeGate() {
+            const res = await fetch('/api/conductor/gate/close', { method: 'POST' });
+            const msg = document.getElementById('controlMsg');
+            if (res.ok) { msg.textContent = '🔒 Gate is now CLOSED.'; msg.className = 'text-xs mt-3 text-red-600 h-4'; loadDashboard(); }
+            else { msg.textContent = '❌ Failed to close gate.'; msg.className = 'text-xs mt-3 text-red-600 h-4'; }
+        }
+
+        async function markComplete() {
+            if (!confirm('⚠️ Mark this exam as COMPLETE?\n\nThis will close the gate and freeze attendance. This cannot be undone.')) return;
+            const res = await fetch('/api/conductor/mark_exam_complete', { method: 'POST' });
+            const msg = document.getElementById('controlMsg');
+            if (res.ok) { msg.textContent = '✅ Exam marked COMPLETE. Gate closed.'; msg.className = 'text-xs mt-3 text-indigo-600 h-4'; loadDashboard(); }
+            else { msg.textContent = '❌ Failed to mark complete.'; msg.className = 'text-xs mt-3 text-red-600 h-4'; }
+        }
+
+        // Auto-refresh every 30s
+        loadDashboard();
+        loadAttendance();
+        setInterval(() => { loadDashboard(); loadAttendance(); }, 30000);
+    </script>
+</body>
+
+</html>

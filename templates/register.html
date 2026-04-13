@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-panel w-full max-w-lg mx-auto mt-10 p-8 rounded-2xl shadow-xl">
+    <div class="text-center mb-8">
+        <h2 class="text-3xl font-bold text-gray-800">Universal Face Registration</h2>
+        <p class="text-sm text-gray-500 mt-2">Create your global identity for all exams.</p>
+    </div>
+
+    <form id="regForm" class="space-y-6" onsubmit="registerProfile(event)">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Full Name</label>
+            <input type="text" id="candName" required
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md">
+        </div>
+        <div class="flex gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                <input type="email" id="candEmail" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md">
+            </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Phone Number</label>
+                <input type="tel" id="candPhone" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md" pattern="[0-9]{10}"
+                    placeholder="10 Digits">
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="candUser" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md">
+            </div>
+            <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="candPass" required
+                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Passport Size Photo (Max 500KB) <span
+                    class="text-red-500">*</span></label>
+            <input type="file" id="passportPhoto" accept="image/jpeg, image/png" required
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-bold">This photo will be printed on
+                your final Admit Card.</p>
+        </div>
+
+        <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Live Universal Photo Capture</label>
+            <div
+                class="relative rounded-lg overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center p-2 h-64">
+                <video id="video" class="w-full h-full object-cover rounded shadow-sm" autoplay playsinline></video>
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+            <button type="button" onclick="capturePhoto()"
+                class="mt-3 w-full py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                Capture Universal Face
+            </button>
+            <p id="captureStatus" class="mt-2 text-sm text-green-600 font-medium hidden">✓ Biometric template extracted
+            </p>
+        </div>
+
+        <input type="hidden" id="photoData">
+
+        <button type="submit" id="submitBtn"
+            class="w-full py-3 text-white bg-blue-600 rounded-md shadow-md text-sm font-bold hover:bg-blue-700"
+            disabled>
+            Create Global Profile
+        </button>
+    </form>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const photoData = document.getElementById('photoData');
+    const submitBtn = document.getElementById('submitBtn');
+    const captureStatus = document.getElementById('captureStatus');
+
+    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+        .then(stream => { video.srcObject = stream; })
+        .catch(err => console.error("Camera error:", err));
+
+    function capturePhoto() {
+        if (!video.videoWidth) return alert("Camera not ready");
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        photoData.value = canvas.toDataURL('image/jpeg');
+        captureStatus.classList.remove('hidden');
+        submitBtn.disabled = false; video.pause();
+    }
+
+    async function registerProfile(e) {
+        e.preventDefault();
+
+        const passportFile = document.getElementById('passportPhoto').files[0];
+        if (!passportFile) return alert("Please upload a Passport Size Photo.");
+        if (passportFile.size > 500 * 1024) return alert("Passport Photo must be under 500KB. Please compress the image.");
+
+        submitBtn.disabled = true; submitBtn.innerText = "Registering...";
+
+        try {
+            const res = await fetch(photoData.value);
+            const blob = await res.blob();
+            const fd = new FormData();
+            fd.append('name', document.getElementById('candName').value);
+            fd.append('email', document.getElementById('candEmail').value);
+            fd.append('phone', document.getElementById('candPhone').value);
+            fd.append('username', document.getElementById('candUser').value);
+            fd.append('password', document.getElementById('candPass').value);
+            fd.append('photo', blob, 'capture.jpg'); // Biometric face
+            fd.append('passport_photo', passportFile); // New Admit Card photo
+
+            const response = await fetch('/api/student/register', { method: 'POST', body: fd });
+            const result = await response.json();
+
+            if (response.ok) {
+                if (result.message && result.message.includes('SECURITY WARNING')) {
+                    alert("⚠️ PROFILE CREATED BUT:\n\n" + result.message + "\n\nPlease login below to authenticate.");
+                } else {
+                    alert(result.message + "\n\nPlease login below to authenticate.");
+                }
+                window.location.href = '/';
+            } else {
+                alert("Error during registration: " + (result.detail || "Unknown error"));
+            }
+        } catch (err) { alert('Failed'); }
+        submitBtn.disabled = false; submitBtn.innerText = "Create Global Profile";
+    }
+</script>
+{% endblock %}

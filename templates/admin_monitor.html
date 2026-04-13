@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-panel w-[98%] max-w-none mx-auto mt-8 p-6 rounded-xl flex flex-col gap-4">
+
+    <!-- Admin Navigation Tabs -->
+    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div class="flex space-x-2">
+            <a href="/admin"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Exams Mgmt</a>
+            <a href="/admin/roster"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Roster & QR</a>
+            <a href="/admin/students"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Student DB</a>
+            <a href="/admin/attendance"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Attendance &
+                Gate</a>
+            <a href="/admin/monitor"
+                class="px-4 py-2 font-bold text-sm rounded bg-blue-600 text-white shadow hover:bg-blue-700 transition">Global
+                Monitor</a>
+            <a href="/admin/conductors"
+                class="px-4 py-2 font-bold text-sm rounded text-gray-600 hover:bg-gray-100 transition">Conductors</a>
+        </div>
+        <button onclick="logout()"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase rounded shadow transition cursor-pointer">Security
+            Logout</button>
+    </div>
+
+    <!-- Global Monitor Module -->
+    <div class="w-full flex flex-col gap-6">
+
+        <!-- Controls Header -->
+        <div
+            class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex flex-col w-full md:w-1/3">
+                <label class="text-xs font-bold text-gray-500 uppercase">Select Target Exam</label>
+                <select id="examSelector"
+                    class="form-select w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 font-bold focus:ring focus:ring-blue-200 transition"
+                    onchange="onExamChanged()">
+                    <option value="">Loading Exams...</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Connection Status Indicator -->
+                <div id="wsStatus"
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <div id="wsStatusDot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
+                    <span id="wsStatusText"
+                        class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Offline</span>
+                </div>
+
+                <button onclick="loadMonitorData()"
+                    class="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-100 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                        </path>
+                    </svg>
+                    Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Cards Grid -->
+        <div id="monitorGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 min-h-[300px]">
+            <div
+                class="col-span-full py-16 text-center text-gray-400 font-bold bg-white rounded-xl border border-dashed border-gray-300">
+                Please select an exam to load center health metrics.
+            </div>
+        </div>
+
+        <!-- Live Event Ticker -->
+        <div id="tickerContainer" class="hidden">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="font-black text-xs uppercase tracking-wider text-gray-600">Live Event Feed</span>
+                    </div>
+                    <button onclick="clearTicker()"
+                        class="text-[10px] font-bold text-gray-400 hover:text-red-500 uppercase tracking-wider transition">Clear</button>
+                </div>
+                <div id="tickerBody" class="max-h-[260px] overflow-y-auto divide-y divide-gray-50 scroll-smooth">
+                    <div class="px-5 py-4 text-center text-gray-400 text-xs italic">Waiting for live events...</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    @keyframes flashRow {
+        0% {
+            background-color: #dbeafe;
+        }
+
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .flash-event {
+        animation: flashRow 2s ease-out;
+    }
+</style>
+
+<script>
+    let _ws = null;
+    let _reconnectTimer = null;
+    let _selectedExamId = null;
+
+    async function initAdmin() {
+        try {
+            const res = await fetch('/api/me');
+            if (res.ok) {
+                const user = await res.json();
+                if (user.role !== 'admin') window.location.href = '/';
+            } else {
+                window.location.href = '/';
+            }
+        } catch (e) {
+            window.location.href = '/';
+        }
+
+        await loadExamsDropdown();
+    }
+
+    async function logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/';
+    }
+
+    async function loadExamsDropdown() {
+        const res = await fetch('/api/admin/exams');
+        const currentExams = await res.json();
+
+        const sel = document.getElementById('examSelector');
+        if (currentExams.length === 0) {
+            sel.innerHTML = '<option value="">No exams available</option>';
+            return;
+        }
+
+        let html = '<option value="">-- Choose an Exam --</option>';
+        currentExams.forEach(e => {
+            html += `<option value="${e.id}">${e.name}</option>`;
+        });
+        sel.innerHTML = html;
+    }
+
+    // ─── Exam Selection & WebSocket Management ────────────────────────
+
+    function onExamChanged() {
+        const examId = document.getElementById('examSelector').value;
+        _selectedExamId = examId ? parseInt(examId) : null;
+
+        disconnectWS();
+
+        if (_selectedExamId) {
+            connectWS(_selectedExamId);
+            document.getElementById('tickerContainer').classList.remove('hidden');
+        } else {
+            document.getElementById('tickerContainer').classList.add('hidden');
+        }
+
+        loadMonitorData();
+    }
+
+    function connectWS(examId) {
+        disconnectWS();
+
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${location.host}/ws/monitor/${examId}`;
+
+        setWSStatus('connecting');
+        _ws = new WebSocket(wsUrl);
+
+        _ws.onopen = () => {
+            setWSStatus('connected');
+            if (_reconnectTimer) {
+                clearTimeout(_reconnectTimer);
+                _reconnectTimer = null;
+            }
+        };
+
+        _ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                handleWSMessage(msg);
+            } catch (e) {
+                console.error('WS parse error:', e);
+            }
+        };
+
+        _ws.onclose = () => {
+            setWSStatus('disconnected');
+            // Auto-reconnect after 3s if we still have this exam selected
+            if (_selectedExamId === examId) {
+                _reconnectTimer = setTimeout(() => connectWS(examId), 3000);
+            }
+        };
+
+        _ws.onerror = () => {
+            setWSStatus('disconnected');
+        };
+    }
+
+    function disconnectWS() {
+        if (_reconnectTimer) {
+            clearTimeout(_reconnectTimer);
+            _reconnectTimer = null;
+        }
+        if (_ws) {
+            _ws.onclose = null; // prevent auto-reconnect
+            _ws.close();
+            _ws = null;
+        }
+        setWSStatus('offline');
+    }
+
+    function setWSStatus(state) {
+        const dot = document.getElementById('wsStatusDot');
+        const txt = document.getElementById('wsStatusText');
+        const styles = {
+            'offline': { color: 'bg-gray-400', text: 'Offline', animate: '' },
+            'connecting': { color: 'bg-yellow-400', text: 'Connecting...', animate: 'animate-pulse' },
+            'connected': { color: 'bg-emerald-500', text: 'Live', animate: 'animate-pulse' },
+            'disconnected': { color: 'bg-red-500', text: 'Reconnecting...', animate: 'animate-pulse' },
+        };
+        const s = styles[state] || styles['offline'];
+        dot.className = `w-2.5 h-2.5 rounded-full ${s.color} ${s.animate}`;
+        txt.textContent = s.text;
+        txt.className = `text-[10px] font-bold uppercase tracking-wider ${state === 'connected' ? 'text-emerald-600' : 'text-gray-400'}`;
+    }
+
+    // ─── WebSocket Message Handler ────────────────────────────────────
+
+    function handleWSMessage(msg) {
+        switch (msg.type) {
+            case 'attendance':
+                addTickerEvent(
+                    msg.attendance_marked ? 'success' : 'revoked',
+                    msg.attendance_marked
+                        ? `<strong>${msg.student_name}</strong> (${msg.reg_no}) marked <span class="text-emerald-600 font-bold">PRESENT</span> at ${msg.attendance_time}`
+                        : `<strong>${msg.student_name}</strong> (${msg.reg_no}) attendance <span class="text-red-500 font-bold">REVOKED</span>`
+                );
+                loadMonitorData(); // refresh metric cards
+                break;
+
+            case 'sync_batch':
+                addTickerEvent(
+                    'sync',
+                    `Edge Terminal synced <strong>${msg.synced}</strong> attendance log(s)` +
+                    (msg.skipped > 0 ? ` (${msg.skipped} skipped)` : '')
+                );
+                loadMonitorData();
+                break;
+
+            case 'gate_toggle':
+                addTickerEvent(
+                    msg.gate_open ? 'gate_open' : 'gate_close',
+                    msg.gate_open
+                        ? 'Gate has been <span class="text-emerald-600 font-bold">OPENED</span> — devices unlocked'
+                        : 'Gate has been <span class="text-red-500 font-bold">CLOSED</span> — devices locked'
+                );
+                break;
+
+            default:
+                console.log('Unknown WS event:', msg);
+        }
+    }
+
+    // ─── Live Event Ticker ────────────────────────────────────────────
+
+    function addTickerEvent(type, html) {
+        const body = document.getElementById('tickerBody');
+
+        // Remove "waiting" placeholder if present
+        if (body.querySelector('.italic')) {
+            body.innerHTML = '';
+        }
+
+        const icons = {
+            'success': '✅',
+            'revoked': '↩️',
+            'sync': '📤',
+            'gate_open': '🟢',
+            'gate_close': '🔴',
+        };
+
+        const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+        const row = document.createElement('div');
+        row.className = 'px-5 py-3 flex items-start gap-3 flash-event text-sm';
+        row.innerHTML = `
+            <span class="text-base shrink-0 mt-0.5">${icons[type] || '•'}</span>
+            <div class="flex-1 text-gray-700">${html}</div>
+            <span class="text-[10px] text-gray-400 font-mono shrink-0 mt-1">${now}</span>
+        `;
+
+        body.prepend(row);
+
+        // Cap at 50 events
+        while (body.children.length > 50) {
+            body.removeChild(body.lastChild);
+        }
+    }
+
+    function clearTicker() {
+        document.getElementById('tickerBody').innerHTML = '<div class="px-5 py-4 text-center text-gray-400 text-xs italic">Waiting for live events...</div>';
+    }
+
+    // ─── Monitor Data (HTTP refresh) ──────────────────────────────────
+
+    async function loadMonitorData() {
+        const examId = document.getElementById('examSelector').value;
+        const grid = document.getElementById('monitorGrid');
+
+        if (!examId) {
+            grid.innerHTML = '<div class="col-span-full py-16 text-center text-gray-400 font-bold bg-white rounded-xl border border-dashed border-gray-300">Please select an exam to load center health metrics.</div>';
+            return;
+        }
+
+        grid.innerHTML = '<div class="col-span-full py-16 text-center text-blue-500 font-bold bg-white rounded-xl border border-blue-100 flex justify-center items-center gap-3"><div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> Fetching India-wide metrics...</div>';
+
+        try {
+            const res = await fetch(`/api/admin/monitor/${examId}`);
+            if (!res.ok) throw new Error("Failed to load");
+            const data = await res.json();
+
+            if (data.length === 0) {
+                grid.innerHTML = '<div class="col-span-full py-16 text-center text-yellow-600 font-bold bg-white rounded-xl border border-yellow-200">No centers or sessions configured for this exam yet.</div>';
+                return;
+            }
+
+            renderCards(data);
+        } catch (e) {
+            console.error(e);
+            grid.innerHTML = '<div class="col-span-full py-16 text-center text-red-500 font-bold bg-white rounded-xl border border-red-200">Error loading global monitor data. Check console.</div>';
+        }
+    }
+
+    function renderCards(sessions) {
+        const grid = document.getElementById('monitorGrid');
+        let html = '';
+
+        sessions.forEach(s => {
+            const m = s.metrics;
+            // Calculate progress bar percentages
+            const enrolledPct = m.total_roster > 0 ? Math.round((m.successful_enrollments / m.total_roster) * 100) : 0;
+            const bioPct = m.total_roster > 0 ? Math.round((m.biometric_success / m.total_roster) * 100) : 0;
+
+            html += `
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col">
+                <!-- Card Header -->
+                <div class="bg-blue-50/50 p-4 border-b border-gray-100 flex justify-between items-start gap-4">
+                    <div>
+                        <p class="text-[10px] font-black tracking-widest text-blue-600 uppercase mb-1">${s.city}, ${s.state}</p>
+                        <h4 class="font-bold text-gray-800 leading-tight">${s.center_name}</h4>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="inline-block bg-white border border-gray-200 text-gray-600 text-[10px] font-bold px-2 py-1 rounded-md shadow-sm">
+                            ${s.session_time}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card Body (Metrics) -->
+                <div class="p-5 flex-1 flex flex-col gap-4">
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase">Total Roster</p>
+                            <p class="text-2xl font-black text-gray-800">${m.total_roster}</p>
+                        </div>
+                        <div class="bg-green-50/50 rounded-xl p-3 border border-green-100">
+                            <p class="text-[10px] font-bold text-green-600 uppercase">Biometric Success</p>
+                            <p class="text-2xl font-black text-green-700">${m.biometric_success}</p>
+                        </div>
+                        <div class="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100">
+                            <p class="text-[10px] font-bold text-indigo-600 uppercase">Enrolled</p>
+                            <p class="text-xl font-bold text-indigo-700">${m.successful_enrollments}</p>
+                        </div>
+                        <div class="bg-orange-50/50 rounded-xl p-3 border border-orange-100">
+                            <p class="text-[10px] font-bold text-orange-600 uppercase">Pending / No-Show</p>
+                            <p class="text-xl font-bold text-orange-700">${m.pending}</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bars -->
+                    <div class="mt-auto space-y-3 pt-4 border-t border-gray-100">
+                        <div>
+                            <div class="flex justify-between text-[10px] font-bold mb-1">
+                                <span class="text-indigo-600 uppercase">Enrollment Completion</span>
+                                <span class="text-gray-500">${enrolledPct}%</span>
+                            </div>
+                            <div class="w-full bg-indigo-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: ${enrolledPct}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] font-bold mb-1">
+                                <span class="text-green-600 uppercase">Attendance Verified</span>
+                                <span class="text-gray-500">${bioPct}%</span>
+                            </div>
+                            <div class="w-full bg-green-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-green-500 h-1.5 rounded-full transition-all duration-500" style="width: ${bioPct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>`;
+        });
+
+        grid.innerHTML = html;
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', disconnectWS);
+    window.onload = initAdmin;
+</script>
+{% endblock %}

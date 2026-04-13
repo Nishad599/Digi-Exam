@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Environment variables (NEVER push this)
+.env
+
+# Windows specific
+*.whl
+Thumbs.db
+desktop.ini
+
+# Uploads / user data
+uploads_profile_pics/
+backups/
+mock_sent_emails/
+
+# Database files
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Edge terminal (if local only)
+edge_terminal/
