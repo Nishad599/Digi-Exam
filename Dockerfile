@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y software-properties-common && \
     apt-get update && apt-get install -y \
     python3.12 \
     python3.12-venv \
-    python3.12-distutils \
     python3-pip \
     build-essential \
     cmake \
