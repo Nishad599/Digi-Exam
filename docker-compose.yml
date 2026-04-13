@@ -17,7 +17,7 @@ services:
     build: .
     container_name: digi_exam_central
     expose:
-      - "8000"
+      - "8001"
     env_file:
       - .env
     volumes:

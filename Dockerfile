@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --fix-missing \
     build-essential \
     cmake \
     libopenblas-dev \
@@ -26,10 +26,10 @@ COPY . .
 
 RUN mkdir -p uploads_profile_pics
 
-EXPOSE 8000
+EXPOSE 8001
 
 CMD ["gunicorn", "main:app", \
     "--worker-class", "uvicorn.workers.UvicornWorker", \
     "--workers", "4", \
-    "--bind", "0.0.0.0:8000", \
+    "--bind", "0.0.0.0:8001, \
     "--timeout", "120"]
