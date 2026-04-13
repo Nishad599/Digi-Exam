@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: digi_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./static:/app/static
+    depends_on:
+      - central_server
+    restart: always
+
+  central_server:
+    build: .
+    container_name: digi_exam_central
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads_profile_pics:/app/uploads_profile_pics
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
