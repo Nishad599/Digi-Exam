@@ -32,6 +32,6 @@ RUN pip install --no-cache-dir insightface==0.7.3 gunicorn
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8001
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
