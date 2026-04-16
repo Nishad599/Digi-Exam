@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Logs — {{ exam_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col text-gray-800">
+
+    <!-- Nav -->
+    <div class="w-full flex justify-between items-center bg-white px-4 py-2.5 shadow-sm border-b border-gray-200">
+        <a href="/" class="text-xs font-bold text-gray-500 hover:text-gray-800 transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Back to Gate
+        </a>
+        <span class="font-black text-xs uppercase tracking-widest text-gray-600">Attendance Sync — {{ exam_name
+            }}</span>
+        <div class="flex items-center gap-3">
+            <span
+                class="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1.5"><span
+                    class="text-gray-400">👤</span> @{{ conductor_name }}</span>
+            {% if exam_locked %}
+            <span
+                class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold shadow-sm cursor-not-allowed">🔒
+                Locked</span>
+            {% else %}
+            <button onclick="lockExam()"
+                class="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition shadow-sm bg-animate-pulse">🔒
+                Finish & Lock Exam</button>
+            {% endif %}
+            <a href="/logout"
+                class="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 text-xs font-bold transition shadow-sm">Exit</a>
+        </div>
+    </div>
+
+    <div class="flex-1 p-5 max-w-5xl mx-auto w-full flex flex-col gap-5">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Total Scans</p>
+                <p class="text-3xl font-black text-gray-800">{{ summary.total }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-emerald-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold mb-1">Passed</p>
+                <p class="text-3xl font-black text-emerald-600">{{ summary.passed }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-red-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-red-500 font-bold mb-1">Failed</p>
+                <p class="text-3xl font-black text-red-500">{{ summary.failed }}</p>
+            </div>
+            <div class="bg-white rounded-xl border border-orange-200 shadow-sm p-5">
+                <p class="text-[10px] uppercase tracking-widest text-orange-500 font-bold mb-1">Pending Sync</p>
+                <p class="text-3xl font-black text-orange-500">{{ summary.unsynced }}</p>
+            </div>
+        </div>
+
+        <!-- Upload Panel -->
+        <div class="bg-white rounded-xl border border-indigo-200 shadow-sm p-5">
+            <h3 class="font-black text-indigo-700 text-xs uppercase tracking-wider mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                    </path>
+                </svg>
+                Upload Logs to Main Server
+            </h3>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="serverUrl" placeholder="http://192.168.1.100:8081"
+                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 text-gray-800 placeholder-gray-400">
+                <button onclick="uploadLogs()" id="uploadBtn"
+                    class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg font-black text-sm transition shadow-sm whitespace-nowrap">
+                    Upload {{ summary.unsynced }} Pending Logs
+                </button>
+            </div>
+            <div id="uploadMsg" class="mt-3 text-sm font-bold text-gray-500 hidden"></div>
+        </div>
+
+        <!-- Log Table -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="font-black text-xs uppercase tracking-wider text-gray-600">Verification Log</span>
+                <span class="text-[10px] text-gray-400">{{ logs | length }} total records</span>
+            </div>
+            <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <table class="min-w-full text-xs">
+                    <thead class="sticky top-0 bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                #</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Reg No</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Name</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Center / Session</th>
+                            <th
+                                class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Result</th>
+                            <th
+                                class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Score</th>
+                            <th
+                                class="px-4 py-3 text-left text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Timestamp</th>
+                            <th
+                                class="px-4 py-3 text-center text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+                                Synced</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {% for log in logs %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-4 py-3 text-gray-400 font-mono">{{ log.id }}</td>
+                            <td class="px-4 py-3 font-bold text-gray-800">{{ log.reg_no }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ log.name or '—' }}</td>
+                            <td class="px-4 py-3 text-gray-500 text-[11px]">
+                                <span class="font-bold text-gray-700">{{ log.center_name or '—' }}</span><br>{{
+                                log.session_label or '' }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                {% if log.status == 'PASS' %}
+                                <span
+                                    class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200">PASS</span>
+                                {% else %}
+                                <span
+                                    class="px-3 py-1 rounded-full text-[10px] font-black bg-red-100 text-red-600 border border-red-200">FAIL</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center font-mono text-gray-500">{{ "%.3f"|format(log.confidence or
+                                0) }}</td>
+                            <td class="px-4 py-3 text-gray-400 whitespace-nowrap text-[11px]">{{ log.timestamp }}</td>
+                            <td class="px-4 py-3 text-center">
+                                {% if log.synced %}
+                                <span class="text-emerald-500 font-bold">✓</span>
+                                {% else %}
+                                <span class="text-gray-300 font-bold">○</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-12 text-gray-400 italic text-sm">No verification logs
+                                recorded yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function uploadLogs() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            if (!serverUrl) { alert('Please enter the Main Server URL.'); return; }
+            const btn = document.getElementById('uploadBtn');
+            const msg = document.getElementById('uploadMsg');
+            btn.textContent = 'Uploading...';
+            btn.disabled = true;
+            msg.textContent = '⏳ Connecting to main server...';
+            msg.className = 'mt-3 text-sm font-bold text-gray-500';
+            msg.classList.remove('hidden');
+            try {
+                const res = await fetch('/api/upload_logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ server_url: serverUrl })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    msg.textContent = `✅ Sync Complete! ${data.synced} records uploaded.`;
+                    msg.className = 'mt-3 text-sm font-bold text-emerald-600';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    msg.textContent = `❌ ${data.message}`;
+                    msg.className = 'mt-3 text-sm font-bold text-red-600';
+                }
+            } catch (e) {
+                msg.textContent = `❌ ${e.message}`;
+                msg.className = 'mt-3 text-sm font-bold text-red-600';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Retry Upload';
+        }
+
+        async function lockExam() {
+            if (!confirm('WARNING: Are you sure you want to Finish & Lock this Exam?\n\nOnce locked, NO MORE SCANS can be performed by this terminal. This action is PERMANENT and required for final audit closing.')) return;
+            try {
+                const res = await fetch('/api/lock_exam', { method: 'POST' });
+                if (res.ok) {
+                    alert('Exam Locked Successfully. You can still sync these logs upward.');
+                    location.reload();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'Error occurred');
+                }
+            } catch (e) {
+                alert('Network error.');
+            }
+        }
+    </script>
+</body>
+
+</html>
