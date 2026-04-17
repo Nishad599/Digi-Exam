@@ -96,6 +96,42 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Time Adjustment -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                <p class="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                    <span>🕐</span> Terminal Clock
+                </p>
+                <div class="flex items-center justify-between mb-2">
+                    <span id="liveClockDisplay" class="text-lg font-black text-gray-800 tabular-nums">--:--:-- --</span>
+                    <span id="offsetBadge"
+                        class="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">±0 min</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="adjustOffset(-30)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">-30</button>
+                    <button onclick="adjustOffset(-5)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">-5</button>
+                    <button onclick="adjustOffset(-1)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">-1</button>
+                    <button onclick="setOffset(0)"
+                        class="px-2 py-1 text-[10px] font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded transition">Reset</button>
+                    <button onclick="adjustOffset(1)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">+1</button>
+                    <button onclick="adjustOffset(5)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">+5</button>
+                    <button onclick="adjustOffset(30)"
+                        class="px-2 py-1 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded transition">+30</button>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <input type="number" id="customOffsetInput" placeholder="Minutes"
+                        class="flex-1 border border-gray-300 rounded px-2 py-1 text-xs font-bold text-gray-700 w-20">
+                    <button onclick="setOffset(parseInt(document.getElementById('customOffsetInput').value)||0)"
+                        class="px-3 py-1 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded transition shadow-sm">Set</button>
+                </div>
+                <p class="text-[9px] text-gray-400 mt-1.5">Adjust if terminal clock is wrong. Offset applies to all new
+                    log timestamps.</p>
+            </div>
             {% endif %}
 
             <!-- Registration Input -->
@@ -303,7 +339,60 @@
             </div>`).join('');
         }
 
-        document.addEventListener('DOMContentLoaded', () => { document.getElementById('regNoInput').focus(); });
+        // ─── Time Offset Management ───────────────────────────────
+        let currentOffsetMinutes = 0;
+
+        async function loadTimeOffset() {
+            try {
+                const res = await fetch('/api/time_offset');
+                const data = await res.json();
+                currentOffsetMinutes = data.offset_minutes;
+                updateOffsetUI();
+            } catch (e) { console.error('Failed to load time offset', e); }
+        }
+
+        async function setOffset(minutes) {
+            try {
+                const res = await fetch('/api/time_offset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ offset_minutes: minutes })
+                });
+                const data = await res.json();
+                currentOffsetMinutes = data.offset_minutes;
+                updateOffsetUI();
+            } catch (e) { console.error('Failed to set offset', e); }
+        }
+
+        async function adjustOffset(delta) {
+            await setOffset(currentOffsetMinutes + delta);
+        }
+
+        function updateOffsetUI() {
+            const badge = document.getElementById('offsetBadge');
+            if (badge) {
+                const sign = currentOffsetMinutes >= 0 ? '+' : '';
+                badge.textContent = `${sign}${currentOffsetMinutes} min`;
+                badge.className = currentOffsetMinutes === 0
+                    ? 'text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md'
+                    : 'text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200';
+            }
+        }
+
+        function updateLiveClock() {
+            const display = document.getElementById('liveClockDisplay');
+            if (!display) return;
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + currentOffsetMinutes);
+            display.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('regNoInput').focus();
+            loadTimeOffset();
+            updateLiveClock();
+            setInterval(updateLiveClock, 1000);
+        });
     </script>
 </body>
 

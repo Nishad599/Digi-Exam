@@ -298,3 +298,22 @@ async def lock_exam():
         raise HTTPException(status_code=400, detail="No exam package loaded.")
     db.mark_exam_completed()
     return {"status": "success", "message": "Exam permanently locked for auditing."}
+
+
+@app.get("/api/time_offset")
+async def get_time_offset():
+    """Returns the current time offset and the adjusted terminal time."""
+    offset = db.get_time_offset()
+    adjusted = db.get_adjusted_now().strftime("%Y-%m-%d %I:%M:%S %p")
+    return {"offset_minutes": offset, "adjusted_time": adjusted}
+
+
+@app.post("/api/time_offset")
+async def set_time_offset(request: Request):
+    """Set a time offset (in minutes) to correct the edge terminal clock."""
+    body = await request.json()
+    minutes = int(body.get("offset_minutes", 0))
+    db.set_time_offset(minutes)
+    adjusted = db.get_adjusted_now().strftime("%Y-%m-%d %I:%M:%S %p")
+    return {"status": "success", "offset_minutes": minutes, "adjusted_time": adjusted}
+

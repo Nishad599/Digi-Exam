@@ -1402,6 +1402,14 @@ async def api_enroll_student(
         if key not in ("username", "reg_no", "session_id"):
             dynamic_payload[key] = val
 
+    # CHECK FOR EXISTING ENROLLMENT
+    res_existing = await db.execute(select(models.ExamEnrollment).where(
+        models.ExamEnrollment.student_id == student.id,
+        models.ExamEnrollment.exam_id == exam_id
+    ))
+    if res_existing.scalars().first():
+        raise HTTPException(status_code=400, detail="You are already enrolled in this exam.")
+
     # 4. Success -> Automatically Approve!
     enrollment = models.ExamEnrollment(
         student_id=student.id,
@@ -1898,6 +1906,14 @@ async def mobile_enroll_student(
     # Capture dynamic form data
     form_data = await request.form()
     dynamic_payload = {k: v for k, v in form_data.items() if k not in ("reg_no", "session_id")}
+
+    # CHECK FOR EXISTING ENROLLMENT
+    res_existing = await db.execute(select(models.ExamEnrollment).where(
+        models.ExamEnrollment.student_id == student.id,
+        models.ExamEnrollment.exam_id == exam_id
+    ))
+    if res_existing.scalars().first():
+        raise HTTPException(status_code=400, detail="You are already enrolled in this exam.")
 
     enrollment = models.ExamEnrollment(
         student_id=student.id,

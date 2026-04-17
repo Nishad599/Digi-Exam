@@ -4,9 +4,23 @@ Local SQLite log storage for the offline Edge Gate Terminal.
 """
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DB_PATH = "edge_terminal_logs_default.db"
+
+# Time offset in minutes — set by conductor to correct clock drift
+_time_offset_minutes: int = 0
+
+def set_time_offset(minutes: int):
+    global _time_offset_minutes
+    _time_offset_minutes = minutes
+
+def get_time_offset() -> int:
+    return _time_offset_minutes
+
+def get_adjusted_now() -> datetime:
+    """Returns datetime.now() adjusted by the configured offset."""
+    return datetime.now() + timedelta(minutes=_time_offset_minutes)
 
 def set_db_path(exam_id: int):
     global DB_PATH
@@ -34,7 +48,7 @@ def init_db():
 
 def insert_log(reg_no: str, name: str, session_id: int, session_label: str, 
                center_name: str, status: str, confidence: float):
-    ts = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+    ts = get_adjusted_now().strftime("%Y-%m-%d %I:%M:%S %p")
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "INSERT INTO attendance_logs (reg_no, name, session_id, session_label, center_name, timestamp, status, confidence) VALUES (?,?,?,?,?,?,?,?)",
