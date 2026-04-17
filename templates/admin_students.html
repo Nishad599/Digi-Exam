@@ -34,10 +34,10 @@
             <div class="flex flex-col sm:flex-row flex-1 justify-end items-center gap-3 w-full md:w-auto">
                 <input type="text" id="searchStudents" placeholder="Search by ID, Name, Username or Email..."
                     class="form-input border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full sm:max-w-xs focus:ring focus:ring-blue-100 transition"
-                    onkeyup="renderStudents()">
+                    oninput="studentPage=1; renderStudents()">
                 <select id="filterFace"
                     class="form-select border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full sm:w-36 focus:ring focus:ring-blue-100 transition bg-white"
-                    onchange="renderStudents()">
+                    onchange="studentPage=1; renderStudents()">
                     <option value="">All Statuses</option>
                     <option value="captured">Captured</option>
                     <option value="missing">Missing</option>
@@ -68,6 +68,8 @@
                 </tr>
             </tbody>
         </table>
+        <div id="studentPagination" class="bg-gray-50 px-6 py-3 border-t flex justify-between items-center text-sm">
+        </div>
     </div>
 
     <!-- Current Enrollments & Approvals -->
@@ -78,10 +80,10 @@
             <div class="flex flex-col sm:flex-row flex-1 justify-end items-center gap-3 w-full md:w-auto">
                 <input type="text" id="searchEnrollments" placeholder="Search by Student or Reg No..."
                     class="form-input border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full sm:max-w-xs focus:ring focus:ring-blue-100 transition"
-                    onkeyup="renderEnrollments()">
+                    oninput="enrollmentPage=1; renderEnrollments()">
                 <select id="filterExam"
                     class="form-select border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full sm:max-w-xs focus:ring focus:ring-blue-100 transition bg-white"
-                    onchange="renderEnrollments()">
+                    onchange="enrollmentPage=1; renderEnrollments()">
                     <option value="">All Exams</option>
                 </select>
                 <button onclick="loadEnrollments()"
@@ -106,6 +108,8 @@
                 </tr>
             </tbody>
         </table>
+        <div id="enrollmentPagination" class="bg-gray-50 px-6 py-3 border-t flex justify-between items-center text-sm">
+        </div>
     </div>
 
 </div>
@@ -113,6 +117,10 @@
 <script>
     let currentStudents = [];
     let currentEnrollments = [];
+    let studentPage = 1;
+    const studentLimit = 10;
+    let enrollmentPage = 1;
+    const enrollmentLimit = 10;
 
     async function logout() {
         await fetch('/api/logout', { method: 'POST' });
@@ -150,12 +158,20 @@
             else if (f === 'missing') filtered = filtered.filter(s => !s.has_face);
         }
 
-        if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500 font-medium italic">No students match the active filters (${filtered.length} of ${currentStudents.length} shown).</td></tr>`;
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / studentLimit) || 1;
+        if (studentPage > totalPages) studentPage = totalPages;
+
+        if (totalItems === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500 font-medium italic">No students match the active filters (0 of ${currentStudents.length} shown).</td></tr>`;
+            document.getElementById('studentPagination').innerHTML = '';
             return;
         }
 
-        filtered.forEach(s => {
+        const startIdx = (studentPage - 1) * studentLimit;
+        const pageData = filtered.slice(startIdx, startIdx + studentLimit);
+
+        pageData.forEach(s => {
             const faceBadge = s.has_face
                 ? '<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-[10px] uppercase font-bold border border-green-200 shadow-sm flex items-center w-fit mx-auto"><span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>Captured</span>'
                 : '<span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-[10px] uppercase font-bold border border-red-200 shadow-sm flex items-center w-fit mx-auto"><span class="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5"></span>Missing</span>';
@@ -179,6 +195,16 @@
                 </td>
             </tr>`;
         });
+
+        const endIdx = Math.min(studentPage * studentLimit, totalItems);
+        document.getElementById('studentPagination').innerHTML = `
+            <div class="text-gray-600 font-medium">Showing <span class="font-bold">${startIdx + 1}</span> to <span class="font-bold">${endIdx}</span> of <span class="font-bold">${totalItems}</span></div>
+            <div class="flex space-x-2">
+                <button onclick="studentPage--; renderStudents()" class="px-3 py-1 text-xs font-bold uppercase bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition" ${studentPage === 1 ? 'disabled' : ''}>Prev</button>
+                <div class="px-4 py-1 bg-blue-50 text-blue-800 rounded shadow-sm font-bold text-xs flex items-center">${studentPage} / ${totalPages}</div>
+                <button onclick="studentPage++; renderStudents()" class="px-3 py-1 text-xs font-bold uppercase bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition" ${studentPage === totalPages ? 'disabled' : ''}>Next</button>
+            </div>
+        `;
     }
 
     async function loadEnrollments() {
@@ -213,12 +239,20 @@
         }
         if (fExam) filtered = filtered.filter(e => e.exam === fExam);
 
-        if (filtered.length === 0) {
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / enrollmentLimit) || 1;
+        if (enrollmentPage > totalPages) enrollmentPage = totalPages;
+
+        if (totalItems === 0) {
             tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500 font-medium italic">No enrollments match the active filters out of ${currentEnrollments.length} total.</td></tr>`;
+            document.getElementById('enrollmentPagination').innerHTML = '';
             return;
         }
 
-        filtered.forEach(en => {
+        const startIdx = (enrollmentPage - 1) * enrollmentLimit;
+        const pageData = filtered.slice(startIdx, startIdx + enrollmentLimit);
+
+        pageData.forEach(en => {
             tbody.innerHTML += `
             <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                 <td class="px-6 py-3 font-bold text-gray-900">${en.student} <br><span class="font-normal text-gray-500 text-xs">Reg Num: ${en.reg_no}</span></td>
@@ -226,6 +260,16 @@
                 <td class="px-6 py-3 text-center"><span class="inline-flex flex-col items-center px-4 py-1.5 rounded-md shadow-sm border text-[10px] uppercase font-black bg-emerald-50 text-emerald-700 border-emerald-200"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mb-1"></span> ${en.status}</span></td>
             </tr>`;
         });
+
+        const endIdx = Math.min(enrollmentPage * enrollmentLimit, totalItems);
+        document.getElementById('enrollmentPagination').innerHTML = `
+            <div class="text-gray-600 font-medium">Showing <span class="font-bold">${startIdx + 1}</span> to <span class="font-bold">${endIdx}</span> of <span class="font-bold">${totalItems}</span></div>
+            <div class="flex space-x-2">
+                <button onclick="enrollmentPage--; renderEnrollments()" class="px-3 py-1 text-xs font-bold uppercase bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition" ${enrollmentPage === 1 ? 'disabled' : ''}>Prev</button>
+                <div class="px-4 py-1 bg-blue-50 text-blue-800 rounded shadow-sm font-bold text-xs flex items-center">${enrollmentPage} / ${totalPages}</div>
+                <button onclick="enrollmentPage++; renderEnrollments()" class="px-3 py-1 text-xs font-bold uppercase bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 disabled:opacity-50 transition" ${enrollmentPage === totalPages ? 'disabled' : ''}>Next</button>
+            </div>
+        `;
     }
 
     // ========== STUDENT CRUD LOGIC ==========
